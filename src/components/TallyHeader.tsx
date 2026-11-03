@@ -31,6 +31,7 @@ export const TallyHeader: React.FC<TallyHeaderProps> = ({ onOpenVoucherModal }) 
     { path: '/', label: 'Gateway' },
     { path: '/cash', label: 'Cash Book' },
     { path: '/bank', label: 'Bank Book' },
+    { path: '/contra', label: 'Contra (F4)' },
     { path: '/purchase', label: 'Purchases' },
     { path: '/sale', label: 'Sales' },
     { path: '/session', label: 'Input Session' },

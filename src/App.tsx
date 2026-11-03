@@ -7,6 +7,7 @@ import { VoucherEntryModal } from './components/VoucherEntryModal';
 import { GatewayPage } from './pages/GatewayPage';
 import { CashBookPage } from './pages/CashBookPage';
 import { BankBookPage } from './pages/BankBookPage';
+import { ContraPage } from './pages/ContraPage';
 import { PurchasePage } from './pages/PurchasePage';
 import { SalePage } from './pages/SalePage';
 import { PnLPage } from './pages/PnLPage';
@@ -50,6 +51,7 @@ const AppLayout: React.FC = () => {
             <Route path="/" element={<GatewayPage onOpenVoucher={handleOpenVoucherModal} />} />
             <Route path="/cash" element={<CashBookPage onOpenVoucher={handleOpenVoucherModal} />} />
             <Route path="/bank" element={<BankBookPage onOpenVoucher={handleOpenVoucherModal} />} />
+            <Route path="/contra" element={<ContraPage onOpenVoucher={handleOpenVoucherModal} />} />
             <Route path="/purchase" element={<PurchasePage onOpenVoucher={handleOpenVoucherModal} />} />
             <Route path="/sale" element={<SalePage onOpenVoucher={handleOpenVoucherModal} />} />
             <Route path="/session" element={<VoucherSessionPage />} />

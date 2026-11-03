@@ -85,6 +85,7 @@ interface AccountingContextType {
 
   getPurchasesList: () => VoucherEntry[];
   getSalesList: () => VoucherEntry[];
+  getContraEntries: () => VoucherEntry[];
 
   // Financial Reports
   calculatePnL: () => ProfitAndLossSummary;
@@ -103,7 +104,7 @@ interface AccountingContextType {
   toggleTheme: () => void;
 }
 
-const STORAGE_KEY = 'tally_edu_accounting_state_v1';
+const STORAGE_KEY = 'tally_clean_slate_v3';
 
 const AccountingContext = createContext<AccountingContextType | undefined>(undefined);
 
@@ -417,6 +418,13 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   };
 
+  // Contra list (Cash <-> Bank, Bank <-> Bank)
+  const getContraEntries = () => {
+    return vouchers
+      .filter(v => v.voucherType === 'CONTRA')
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  };
+
   // Profit and Loss calculation
   const calculatePnL = (): ProfitAndLossSummary => {
     // 1. Direct Income (Sales + Other direct receipts)
@@ -688,6 +696,7 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
         getBankBook,
         getPurchasesList,
         getSalesList,
+        getContraEntries,
         calculatePnL,
         calculateBalanceSheet,
         calculateTrialBalance,

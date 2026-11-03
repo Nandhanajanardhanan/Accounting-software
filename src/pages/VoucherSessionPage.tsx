@@ -6,6 +6,7 @@ import {
   Landmark,
   ShoppingCart,
   Receipt,
+  Repeat,
   Plus,
   CheckCircle2,
   AlertCircle,
@@ -17,23 +18,36 @@ import type { InvoiceItem } from '../types/accounting';
 export const VoucherSessionPage: React.FC = () => {
   const { company, ledgers, addVoucher, vouchers, deleteVoucher, getLedgerBalance } = useAccounting();
 
-  const [activeTab, setActiveTab] = useState<'CASH' | 'BANK' | 'PURCHASE' | 'SALE'>('CASH');
+  // Active Session Tab: 'CASH' | 'BANK' | 'CONTRA' | 'PURCHASE' | 'SALE'
+  const [activeTab, setActiveTab] = useState<'CASH' | 'BANK' | 'CONTRA' | 'PURCHASE' | 'SALE'>('CASH');
 
   const [date, setDate] = useState<string>(company.currentAccountingDate);
   const [amount, setAmount] = useState<string>('');
   const [narration, setNarration] = useState<string>('');
   const [referenceNo, setReferenceNo] = useState<string>('');
 
+  // 1. Cash Book state:
   const [cashDirection, setCashDirection] = useState<'INFLOW' | 'OUTFLOW'>('INFLOW');
   const [cashPartyLedgerId, setCashPartyLedgerId] = useState<string>('');
 
-  const [bankSubtype, setBankSubtype] = useState<'DEPOSIT' | 'WITHDRAWAL' | 'CONTRA_TO_CASH'>('DEPOSIT');
+  // 2. Bank Book state:
+  const [bankSubtype, setBankSubtype] = useState<'DEPOSIT' | 'WITHDRAWAL'>('DEPOSIT');
   const [selectedBankId, setSelectedBankId] = useState<string>(
     ledgers.find((l) => l.group === 'BANK')?.id || ''
   );
   const [bankPartyLedgerId, setBankPartyLedgerId] = useState<string>('');
   const [chequeNo, setChequeNo] = useState<string>('');
 
+  // 3. Contra state:
+  const [contraType, setContraType] = useState<'CASH_TO_BANK' | 'BANK_TO_CASH' | 'BANK_TO_BANK'>('CASH_TO_BANK');
+  const [contraPrimaryBankId, setContraPrimaryBankId] = useState<string>(
+    ledgers.find((l) => l.group === 'BANK')?.id || ''
+  );
+  const [contraSecondaryBankId, setContraSecondaryBankId] = useState<string>(
+    ledgers.filter((l) => l.group === 'BANK')[1]?.id || ledgers.find((l) => l.group === 'BANK')?.id || ''
+  );
+
+  // 4. Purchase state:
   const [purchaseSupplierId, setPurchaseSupplierId] = useState<string>('');
   const [purchasePaymentMode, setPurchasePaymentMode] = useState<'CREDIT' | 'CASH' | 'BANK'>('CREDIT');
   const [purchaseItems, setPurchaseItems] = useState<InvoiceItem[]>([]);
@@ -41,6 +55,7 @@ export const VoucherSessionPage: React.FC = () => {
   const [pItemQty, setPItemQty] = useState('1');
   const [pItemRate, setPItemRate] = useState('');
 
+  // 5. Sale state:
   const [saleCustomerId, setSaleCustomerId] = useState<string>('');
   const [salePaymentMode, setSalePaymentMode] = useState<'CREDIT' | 'CASH' | 'BANK'>('CREDIT');
   const [saleItems, setSaleItems] = useState<InvoiceItem[]>([]);
@@ -146,20 +161,7 @@ export const VoucherSessionPage: React.FC = () => {
           return;
         }
 
-        if (bankSubtype === 'CONTRA_TO_CASH') {
-          addVoucher({
-            voucherType: 'CONTRA',
-            date,
-            debitLedgerId: bankId,
-            creditLedgerId: cashLedger?.id || 'led_cash',
-            amount: parsedAmount,
-            narration: narration || 'Being cash deposited into bank account',
-            referenceNo: referenceNo.trim() || undefined,
-            paymentMode: 'BANK',
-            chequeOrUtrNo: chequeNo.trim() || undefined,
-            category: 'BANK',
-          });
-        } else if (bankSubtype === 'DEPOSIT') {
+        if (bankSubtype === 'DEPOSIT') {
           if (!bankPartyLedgerId) {
             setFeedback({ type: 'error', message: 'Please select customer or source ledger.' });
             return;
@@ -188,6 +190,61 @@ export const VoucherSessionPage: React.FC = () => {
             creditLedgerId: bankId,
             amount: parsedAmount,
             narration: narration || 'Being payment debited from bank account',
+            referenceNo: referenceNo.trim() || undefined,
+            paymentMode: 'BANK',
+            chequeOrUtrNo: chequeNo.trim() || undefined,
+            category: 'BANK',
+          });
+        }
+      } else if (activeTab === 'CONTRA') {
+        const targetBankId = contraPrimaryBankId || bankLedgers[0]?.id;
+        if (!targetBankId) {
+          setFeedback({ type: 'error', message: 'No bank account ledger found for Contra entry.' });
+          return;
+        }
+
+        if (contraType === 'CASH_TO_BANK') {
+          // Debit Bank (Receiver), Credit Cash (Giver)
+          addVoucher({
+            voucherType: 'CONTRA',
+            date,
+            debitLedgerId: targetBankId,
+            creditLedgerId: cashLedger?.id || 'led_cash',
+            amount: parsedAmount,
+            narration: narration || `Being cash deposited into ${ledgers.find(l => l.id === targetBankId)?.name}`,
+            referenceNo: referenceNo.trim() || undefined,
+            paymentMode: 'BANK',
+            chequeOrUtrNo: chequeNo.trim() || undefined,
+            category: 'BANK',
+          });
+        } else if (contraType === 'BANK_TO_CASH') {
+          // Debit Cash (Receiver), Credit Bank (Giver)
+          addVoucher({
+            voucherType: 'CONTRA',
+            date,
+            debitLedgerId: cashLedger?.id || 'led_cash',
+            creditLedgerId: targetBankId,
+            amount: parsedAmount,
+            narration: narration || `Being cash withdrawn from ${ledgers.find(l => l.id === targetBankId)?.name} for office use`,
+            referenceNo: referenceNo.trim() || undefined,
+            paymentMode: 'CASH',
+            chequeOrUtrNo: chequeNo.trim() || undefined,
+            category: 'CASH',
+          });
+        } else {
+          // Bank to Bank
+          if (!contraSecondaryBankId || contraPrimaryBankId === contraSecondaryBankId) {
+            setFeedback({ type: 'error', message: 'Please select two different bank accounts for inter-bank transfer.' });
+            return;
+          }
+          // Debit Destination (Primary), Credit Source (Secondary)
+          addVoucher({
+            voucherType: 'CONTRA',
+            date,
+            debitLedgerId: contraPrimaryBankId,
+            creditLedgerId: contraSecondaryBankId,
+            amount: parsedAmount,
+            narration: narration || 'Being funds transferred between corporate bank accounts',
             referenceNo: referenceNo.trim() || undefined,
             paymentMode: 'BANK',
             chequeOrUtrNo: chequeNo.trim() || undefined,
@@ -262,7 +319,7 @@ export const VoucherSessionPage: React.FC = () => {
     }
   };
 
-  const recentVouchers = [...vouchers].reverse().slice(0, 6);
+  const recentVouchers = [...vouchers].reverse().slice(0, 8);
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 text-xs font-sans">
@@ -283,7 +340,7 @@ export const VoucherSessionPage: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs text-slate-500">
-                A single unified session where you can give inputs for Cash Book, Bank, Purchases, and Sales
+                Single unified workspace to give inputs for Cash Book, Bank, Contra, Purchases, and Sales
               </p>
             </div>
           </div>
@@ -294,90 +351,111 @@ export const VoucherSessionPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 4 Primary Input Session Tabs in White & Blue */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/* 5 Primary Input Session Tabs including Contra */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {/* TAB 1: CASH */}
         <button
           onClick={() => {
             setActiveTab('CASH');
             setFeedback(null);
           }}
-          className={`p-4 rounded-xl border flex items-center justify-between transition-all ${
+          className={`p-3.5 rounded-xl border flex items-center justify-between transition-all ${
             activeTab === 'CASH'
               ? 'bg-blue-600 border-blue-600 text-white shadow-md'
               : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
           }`}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <Wallet className={`w-5 h-5 ${activeTab === 'CASH' ? 'text-white' : 'text-emerald-600'}`} />
             <div className="text-left">
-              <div className="font-bold text-xs uppercase">Cash Book Input</div>
-              <div className={`text-[10px] ${activeTab === 'CASH' ? 'text-blue-100' : 'text-slate-400'}`}>Receipts & Payments</div>
+              <div className="font-bold text-xs uppercase">Cash Book</div>
+              <div className={`text-[10px] ${activeTab === 'CASH' ? 'text-blue-100' : 'text-slate-400'}`}>Receipt & Pay</div>
             </div>
           </div>
-          <ArrowRight className="w-4 h-4 opacity-75" />
         </button>
 
+        {/* TAB 2: BANK */}
         <button
           onClick={() => {
             setActiveTab('BANK');
             setFeedback(null);
           }}
-          className={`p-4 rounded-xl border flex items-center justify-between transition-all ${
+          className={`p-3.5 rounded-xl border flex items-center justify-between transition-all ${
             activeTab === 'BANK'
               ? 'bg-blue-600 border-blue-600 text-white shadow-md'
               : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
           }`}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <Landmark className={`w-5 h-5 ${activeTab === 'BANK' ? 'text-white' : 'text-blue-600'}`} />
             <div className="text-left">
-              <div className="font-bold text-xs uppercase">Bank Book Input</div>
-              <div className={`text-[10px] ${activeTab === 'BANK' ? 'text-blue-100' : 'text-slate-400'}`}>Deposits, RTGS, Contra</div>
+              <div className="font-bold text-xs uppercase">Bank Book</div>
+              <div className={`text-[10px] ${activeTab === 'BANK' ? 'text-blue-100' : 'text-slate-400'}`}>Deposit & Pay</div>
             </div>
           </div>
-          <ArrowRight className="w-4 h-4 opacity-75" />
         </button>
 
+        {/* TAB 3: CONTRA ENTRY (PROMINENT) */}
+        <button
+          onClick={() => {
+            setActiveTab('CONTRA');
+            setFeedback(null);
+          }}
+          className={`p-3.5 rounded-xl border flex items-center justify-between transition-all ${
+            activeTab === 'CONTRA'
+              ? 'bg-blue-600 border-blue-600 text-white shadow-md'
+              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <Repeat className={`w-5 h-5 ${activeTab === 'CONTRA' ? 'text-white' : 'text-amber-600'}`} />
+            <div className="text-left">
+              <div className="font-bold text-xs uppercase">Contra (F4)</div>
+              <div className={`text-[10px] ${activeTab === 'CONTRA' ? 'text-blue-100' : 'text-slate-400'}`}>Cash ⇄ Bank</div>
+            </div>
+          </div>
+        </button>
+
+        {/* TAB 4: PURCHASE */}
         <button
           onClick={() => {
             setActiveTab('PURCHASE');
             setFeedback(null);
           }}
-          className={`p-4 rounded-xl border flex items-center justify-between transition-all ${
+          className={`p-3.5 rounded-xl border flex items-center justify-between transition-all ${
             activeTab === 'PURCHASE'
               ? 'bg-blue-600 border-blue-600 text-white shadow-md'
               : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
           }`}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <ShoppingCart className={`w-5 h-5 ${activeTab === 'PURCHASE' ? 'text-white' : 'text-orange-600'}`} />
             <div className="text-left">
-              <div className="font-bold text-xs uppercase">Purchase Input</div>
-              <div className={`text-[10px] ${activeTab === 'PURCHASE' ? 'text-blue-100' : 'text-slate-400'}`}>Vendor Bills & Inward</div>
+              <div className="font-bold text-xs uppercase">Purchase</div>
+              <div className={`text-[10px] ${activeTab === 'PURCHASE' ? 'text-blue-100' : 'text-slate-400'}`}>Inward Bills</div>
             </div>
           </div>
-          <ArrowRight className="w-4 h-4 opacity-75" />
         </button>
 
+        {/* TAB 5: SALE */}
         <button
           onClick={() => {
             setActiveTab('SALE');
             setFeedback(null);
           }}
-          className={`p-4 rounded-xl border flex items-center justify-between transition-all ${
+          className={`p-3.5 rounded-xl border flex items-center justify-between transition-all ${
             activeTab === 'SALE'
               ? 'bg-blue-600 border-blue-600 text-white shadow-md'
               : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
           }`}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <Receipt className={`w-5 h-5 ${activeTab === 'SALE' ? 'text-white' : 'text-blue-600'}`} />
             <div className="text-left">
-              <div className="font-bold text-xs uppercase">Sale Input</div>
-              <div className={`text-[10px] ${activeTab === 'SALE' ? 'text-blue-100' : 'text-slate-400'}`}>Customer Tax Invoices</div>
+              <div className="font-bold text-xs uppercase">Sale</div>
+              <div className={`text-[10px] ${activeTab === 'SALE' ? 'text-blue-100' : 'text-slate-400'}`}>Tax Invoices</div>
             </div>
           </div>
-          <ArrowRight className="w-4 h-4 opacity-75" />
         </button>
       </div>
 
@@ -415,10 +493,18 @@ export const VoucherSessionPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-slate-700 mb-1 font-semibold text-xs">Reference / Bill / Cheque No.</label>
+              <label className="block text-slate-700 mb-1 font-semibold text-xs">Reference / Cheque / Slip No.</label>
               <input
                 type="text"
-                placeholder={activeTab === 'PURCHASE' ? 'BILL-101' : activeTab === 'SALE' ? 'INV-101' : 'REF-001'}
+                placeholder={
+                  activeTab === 'CONTRA'
+                    ? 'DEP-SLIP-01'
+                    : activeTab === 'PURCHASE'
+                    ? 'BILL-101'
+                    : activeTab === 'SALE'
+                    ? 'INV-101'
+                    : 'REF-001'
+                }
                 value={referenceNo}
                 onChange={(e) => setReferenceNo(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white transition-colors"
@@ -447,7 +533,7 @@ export const VoucherSessionPage: React.FC = () => {
             <div className="p-4 bg-emerald-50/50 border border-emerald-200 rounded-xl space-y-3">
               <div className="flex items-center justify-between text-emerald-900 font-bold uppercase text-[11px]">
                 <span>Cash Book Entry Options</span>
-                <span className="font-mono">Active Till: {getLedgerBalance('led_cash').formatted}</span>
+                <span className="font-mono">Current Till Cash: {getLedgerBalance('led_cash').formatted}</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -481,7 +567,7 @@ export const VoucherSessionPage: React.FC = () => {
 
                 <div>
                   <label className="block text-slate-700 mb-1 font-semibold">
-                    {cashDirection === 'INFLOW' ? 'Received From (Account/Party):' : 'Paid Towards (Account/Expense):'}
+                    {cashDirection === 'INFLOW' ? 'Received From (Customer/Income/Capital):' : 'Paid Towards (Expense/Supplier):'}
                   </label>
                   <select
                     required
@@ -508,7 +594,7 @@ export const VoucherSessionPage: React.FC = () => {
             <div className="p-4 bg-blue-50/50 border border-blue-200 rounded-xl space-y-3">
               <div className="flex items-center justify-between text-blue-900 font-bold uppercase text-[11px]">
                 <span>Bank Book Entry Options</span>
-                <span>Electronic & Contra Banking</span>
+                <span>Electronic Banking & Party Transactions</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -528,43 +614,212 @@ export const VoucherSessionPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-slate-700 mb-1 font-semibold">Transaction Type</label>
+                  <label className="block text-slate-700 mb-1 font-semibold">Bank Action</label>
                   <select
                     value={bankSubtype}
                     onChange={(e) => setBankSubtype(e.target.value as any)}
                     className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 focus:outline-none focus:border-blue-600"
                   >
                     <option value="DEPOSIT">Bank Deposit / Receipt</option>
-                    <option value="WITHDRAWAL">Bank Payment / Withdrawal</option>
-                    <option value="CONTRA_TO_CASH">Contra: Deposit Cash to Bank</option>
+                    <option value="WITHDRAWAL">Bank Payment / Cheque Issued</option>
                   </select>
                 </div>
 
-                {bankSubtype !== 'CONTRA_TO_CASH' && (
-                  <div>
-                    <label className="block text-slate-700 mb-1 font-semibold">Party / Ledger Account</label>
-                    <select
-                      required
-                      value={bankPartyLedgerId}
-                      onChange={(e) => setBankPartyLedgerId(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 focus:outline-none focus:border-blue-600"
-                    >
-                      <option value="">-- Select Ledger --</option>
-                      {ledgers
-                        .filter((l) => l.group !== 'BANK')
-                        .map((l) => (
-                          <option key={l.id} value={l.id}>
-                            {l.name} [{l.group.replace('_', ' ')}]
+                <div>
+                  <label className="block text-slate-700 mb-1 font-semibold">Party / Ledger Account</label>
+                  <select
+                    required
+                    value={bankPartyLedgerId}
+                    onChange={(e) => setBankPartyLedgerId(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 focus:outline-none focus:border-blue-600"
+                  >
+                    <option value="">-- Select Ledger --</option>
+                    {ledgers
+                      .filter((l) => l.group !== 'BANK')
+                      .map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.name} [{l.group.replace('_', ' ')}]
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: CONTRA ENTRY (PROMINENT INPUT) */}
+          {activeTab === 'CONTRA' && (
+            <div className="p-4 bg-amber-50/60 border border-amber-200 rounded-xl space-y-4">
+              <div className="flex items-center justify-between text-amber-900 font-bold uppercase text-[11px]">
+                <span className="flex items-center gap-1.5">
+                  <Repeat className="w-4 h-4 text-amber-700" />
+                  Contra Voucher (F4) - Internal Fund Transfers
+                </span>
+                <span className="text-slate-600 font-mono">
+                  Cash Till: {getLedgerBalance('led_cash').formatted}
+                </span>
+              </div>
+
+              {/* Contra Mode Selector */}
+              <div>
+                <label className="block text-slate-700 mb-1 font-semibold">Select Contra Movement</label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setContraType('CASH_TO_BANK');
+                      setNarration('Being cash deposited into bank account');
+                    }}
+                    className={`py-2 px-3 rounded-lg font-bold text-xs transition-all border text-left ${
+                      contraType === 'CASH_TO_BANK'
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                        : 'bg-white border-amber-200 text-slate-700 hover:bg-amber-100/50'
+                    }`}
+                  >
+                    <div className="font-bold">1. Deposit Cash to Bank</div>
+                    <div className="text-[10px] opacity-80 font-mono">Dr Bank / Cr Cash</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setContraType('BANK_TO_CASH');
+                      setNarration('Being cash withdrawn from bank for office use');
+                    }}
+                    className={`py-2 px-3 rounded-lg font-bold text-xs transition-all border text-left ${
+                      contraType === 'BANK_TO_CASH'
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                        : 'bg-white border-amber-200 text-slate-700 hover:bg-amber-100/50'
+                    }`}
+                  >
+                    <div className="font-bold">2. Withdraw Cash from Bank</div>
+                    <div className="text-[10px] opacity-80 font-mono">Dr Cash / Cr Bank</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setContraType('BANK_TO_BANK');
+                      setNarration('Being funds transferred between bank accounts');
+                    }}
+                    className={`py-2 px-3 rounded-lg font-bold text-xs transition-all border text-left ${
+                      contraType === 'BANK_TO_BANK'
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                        : 'bg-white border-amber-200 text-slate-700 hover:bg-amber-100/50'
+                    }`}
+                  >
+                    <div className="font-bold">3. Inter-Bank Transfer</div>
+                    <div className="text-[10px] opacity-80 font-mono">Dr Bank A / Cr Bank B</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Contra Details */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                {contraType === 'CASH_TO_BANK' && (
+                  <>
+                    <div>
+                      <label className="block text-slate-700 mb-1 font-semibold">
+                        Destination Bank (Debit / Deposited Into):
+                      </label>
+                      <select
+                        value={contraPrimaryBankId}
+                        onChange={(e) => setContraPrimaryBankId(e.target.value)}
+                        className="w-full bg-white border border-amber-300 rounded-lg px-3 py-2 text-slate-900 font-semibold focus:outline-none focus:border-amber-600 shadow-2xs"
+                      >
+                        {bankLedgers.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.name} (Balance: {getLedgerBalance(b.id).formatted})
                           </option>
                         ))}
-                    </select>
-                  </div>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-700 mb-1 font-semibold">
+                        Source Account (Credit / Withdrawn From):
+                      </label>
+                      <div className="p-2.5 bg-white border border-slate-300 rounded-lg text-slate-800 font-semibold flex items-center justify-between">
+                        <span>Cash A/c (Till Cash)</span>
+                        <span className="font-mono text-xs text-blue-900">{getLedgerBalance('led_cash').formatted}</span>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {contraType === 'BANK_TO_CASH' && (
+                  <>
+                    <div>
+                      <label className="block text-slate-700 mb-1 font-semibold">
+                        Destination Account (Debit / Inflow):
+                      </label>
+                      <div className="p-2.5 bg-white border border-slate-300 rounded-lg text-slate-800 font-semibold flex items-center justify-between">
+                        <span>Cash A/c (Office Cash in Hand)</span>
+                        <span className="font-mono text-xs text-blue-900">{getLedgerBalance('led_cash').formatted}</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-700 mb-1 font-semibold">
+                        Source Bank (Credit / Withdrawn From):
+                      </label>
+                      <select
+                        value={contraPrimaryBankId}
+                        onChange={(e) => setContraPrimaryBankId(e.target.value)}
+                        className="w-full bg-white border border-amber-300 rounded-lg px-3 py-2 text-slate-900 font-semibold focus:outline-none focus:border-amber-600 shadow-2xs"
+                      >
+                        {bankLedgers.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.name} (Balance: {getLedgerBalance(b.id).formatted})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
+
+                {contraType === 'BANK_TO_BANK' && (
+                  <>
+                    <div>
+                      <label className="block text-slate-700 mb-1 font-semibold">
+                        Destination Bank (Debit / Receiver):
+                      </label>
+                      <select
+                        value={contraPrimaryBankId}
+                        onChange={(e) => setContraPrimaryBankId(e.target.value)}
+                        className="w-full bg-white border border-amber-300 rounded-lg px-3 py-2 text-slate-900 font-semibold focus:outline-none focus:border-amber-600 shadow-2xs"
+                      >
+                        {bankLedgers.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-700 mb-1 font-semibold">
+                        Source Bank (Credit / Sender):
+                      </label>
+                      <select
+                        value={contraSecondaryBankId}
+                        onChange={(e) => setContraSecondaryBankId(e.target.value)}
+                        className="w-full bg-white border border-amber-300 rounded-lg px-3 py-2 text-slate-900 font-semibold focus:outline-none focus:border-amber-600 shadow-2xs"
+                      >
+                        {bankLedgers.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
           )}
 
-          {/* TAB 3: PURCHASE INPUT */}
+          {/* TAB 4: PURCHASE INPUT */}
           {activeTab === 'PURCHASE' && (
             <div className="p-4 bg-orange-50/50 border border-orange-200 rounded-xl space-y-3">
               <div className="flex items-center justify-between text-orange-900 font-bold uppercase text-[11px]">
@@ -652,7 +907,7 @@ export const VoucherSessionPage: React.FC = () => {
             </div>
           )}
 
-          {/* TAB 4: SALE INPUT */}
+          {/* TAB 5: SALE INPUT */}
           {activeTab === 'SALE' && (
             <div className="p-4 bg-blue-50/50 border border-blue-200 rounded-xl space-y-3">
               <div className="flex items-center justify-between text-blue-900 font-bold uppercase text-[11px]">
@@ -772,50 +1027,66 @@ export const VoucherSessionPage: React.FC = () => {
           <span className="text-[11px] text-slate-500 font-mono">Total Vouchers: {vouchers.length}</span>
         </div>
 
-        <table className="w-full text-left text-xs font-mono">
-          <thead>
-            <tr className="bg-slate-50 text-slate-600 text-[11px] font-sans">
-              <th className="py-2.5 px-3">Date</th>
-              <th className="py-2.5 px-3">Vch No.</th>
-              <th className="py-2.5 px-3">Type</th>
-              <th className="py-2.5 px-3">Debit Ledger (Dr)</th>
-              <th className="py-2.5 px-3">Credit Ledger (Cr)</th>
-              <th className="py-2.5 px-3 text-right">Amount</th>
-              <th className="py-2.5 px-2 text-center">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {recentVouchers.map((v) => {
-              const dr = ledgers.find((l) => l.id === v.debitLedgerId)?.name || 'Dr Acc';
-              const cr = ledgers.find((l) => l.id === v.creditLedgerId)?.name || 'Cr Acc';
-              return (
-                <tr key={v.id} className="hover:bg-blue-50/30">
-                  <td className="py-2.5 px-3 text-slate-600 font-sans">{v.date}</td>
-                  <td className="py-2.5 px-3 font-bold text-blue-900">{v.voucherNo}</td>
-                  <td className="py-2.5 px-3 font-sans">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-700 font-bold">
-                      {v.voucherType}
-                    </span>
-                  </td>
-                  <td className="py-2.5 px-3 text-emerald-700 font-semibold font-sans">{dr}</td>
-                  <td className="py-2.5 px-3 text-rose-700 font-semibold font-sans">{cr}</td>
-                  <td className="py-2.5 px-3 text-right font-bold text-slate-900">
-                    {company.currencySymbol} {v.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className="py-2.5 px-2 text-center font-sans">
-                    <button
-                      onClick={() => deleteVoucher(v.id)}
-                      className="text-slate-400 hover:text-rose-600 p-1"
-                      title="Delete Entry"
-                    >
-                      <Trash2 className="w-3.5 h-3.5 mx-auto" />
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        {recentVouchers.length === 0 ? (
+          <div className="py-8 text-center text-slate-400">
+            No vouchers recorded yet. Choose any tab above and submit your first entry!
+          </div>
+        ) : (
+          <table className="w-full text-left text-xs font-mono">
+            <thead>
+              <tr className="bg-slate-50 text-slate-600 text-[11px] font-sans">
+                <th className="py-2.5 px-3">Date</th>
+                <th className="py-2.5 px-3">Vch No.</th>
+                <th className="py-2.5 px-3">Type</th>
+                <th className="py-2.5 px-3">Debit Ledger (Dr)</th>
+                <th className="py-2.5 px-3">Credit Ledger (Cr)</th>
+                <th className="py-2.5 px-3 text-right">Amount</th>
+                <th className="py-2.5 px-2 text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {recentVouchers.map((v) => {
+                const dr = ledgers.find((l) => l.id === v.debitLedgerId)?.name || 'Dr Acc';
+                const cr = ledgers.find((l) => l.id === v.creditLedgerId)?.name || 'Cr Acc';
+                return (
+                  <tr key={v.id} className="hover:bg-blue-50/30">
+                    <td className="py-2.5 px-3 text-slate-600 font-sans">{v.date}</td>
+                    <td className="py-2.5 px-3 font-bold text-blue-900">{v.voucherNo}</td>
+                    <td className="py-2.5 px-3 font-sans">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        v.voucherType === 'CONTRA'
+                          ? 'bg-amber-100 text-amber-800'
+                          : v.voucherType === 'RECEIPT'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : v.voucherType === 'PAYMENT'
+                          ? 'bg-rose-100 text-rose-800'
+                          : v.voucherType === 'SALES'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-orange-100 text-orange-800'
+                      }`}>
+                        {v.voucherType}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 text-emerald-700 font-semibold font-sans">{dr}</td>
+                    <td className="py-2.5 px-3 text-rose-700 font-semibold font-sans">{cr}</td>
+                    <td className="py-2.5 px-3 text-right font-bold text-slate-900">
+                      {company.currencySymbol} {v.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="py-2.5 px-2 text-center font-sans">
+                      <button
+                        onClick={() => deleteVoucher(v.id)}
+                        className="text-slate-400 hover:text-rose-600 p-1"
+                        title="Delete Entry"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 mx-auto" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

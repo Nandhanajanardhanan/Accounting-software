@@ -4,6 +4,7 @@ import {
   Wallet,
   ArrowDownLeft,
   ArrowUpRight,
+  Repeat,
   Printer,
   Download,
   Search,
@@ -101,6 +102,14 @@ export const CashBookPage: React.FC<CashBookPageProps> = ({ onOpenVoucher }) => 
           >
             <ArrowUpRight className="w-4 h-4" />
             <span>Cash Payment (F5)</span>
+          </button>
+
+          <button
+            onClick={() => onOpenVoucher('CONTRA')}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold transition-all shadow-xs"
+          >
+            <Repeat className="w-4 h-4" />
+            <span>Deposit to Bank (F4)</span>
           </button>
 
           <button

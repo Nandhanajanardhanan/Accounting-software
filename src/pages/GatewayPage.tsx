@@ -51,6 +51,7 @@ export const GatewayPage: React.FC<GatewayPageProps> = ({ onOpenVoucher }) => {
         { label: 'Universal Input Session', path: '/session', hotkey: 'U', desc: 'Fast cash, bank, sales & purchase input' },
         { label: 'Cash Book', path: '/cash', hotkey: 'C', desc: 'Cash receipts, payments & till cash' },
         { label: 'Bank Book', path: '/bank', hotkey: 'B', desc: 'Deposits, cheques & bank statements' },
+        { label: 'Contra Register (F4)', path: '/contra', hotkey: 'K', desc: 'Cash ⇄ Bank & inter-bank transfers' },
         { label: 'Purchase Register', path: '/purchase', hotkey: 'P', desc: 'Supplier invoices & inward bills' },
         { label: 'Sales Register', path: '/sale', hotkey: 'S', desc: 'Customer billing & revenue register' },
       ],
@@ -252,7 +253,14 @@ export const GatewayPage: React.FC<GatewayPageProps> = ({ onOpenVoucher }) => {
             <p className="text-xs text-slate-500 mb-3.5">
               Directly input accounting vouchers for cash book, bank, purchase, or sale.
             </p>
-            <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+              <button
+                onClick={() => onOpenVoucher('CONTRA')}
+                className="px-3.5 py-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 rounded-lg font-semibold text-left transition-all shadow-2xs col-span-2 sm:col-span-1"
+              >
+                <div className="text-[10px] text-amber-700 font-mono font-bold">F4</div>
+                Contra Voucher
+              </button>
               <button
                 onClick={() => onOpenVoucher('PAYMENT')}
                 className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-800 rounded-lg font-semibold text-left transition-all shadow-2xs"
