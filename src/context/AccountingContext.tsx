@@ -156,7 +156,7 @@ export const AccountingProvider: React.FC<{ children: ReactNode }> = ({ children
   const toggleTheme = () => {
     setCompany(prev => ({
       ...prev,
-      theme: prev.theme === 'classic' ? 'prime' : 'classic',
+      theme: prev.theme === 'white-blue' ? 'classic' : 'white-blue',
     }));
   };
 
@@ -710,3 +710,4 @@ export const useAccounting = () => {
   }
   return context;
 };
+

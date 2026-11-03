@@ -77,72 +77,74 @@ export const TallyHeader: React.FC<TallyHeaderProps> = ({ onOpenVoucherModal }) 
   return (
     <>
       {/* Top Banner - Tally System Bar */}
-      <header className={`w-full border-b select-none transition-colors duration-200 ${
+      <header className={`w-full border-b select-none transition-colors duration-200 shadow-sm ${
         isClassic 
           ? 'bg-[#002626] border-[#0e5c5c] text-[#e0e7d7]' 
-          : 'bg-[#002b49] border-[#0b4870] text-slate-100'
+          : 'bg-[#003366] border-[#002447] text-white'
       }`}>
         {/* Topmost System Info Row */}
-        <div className="px-3 py-1.5 flex flex-wrap items-center justify-between text-xs border-b border-black/20 gap-2">
+        <div className={`px-4 py-1.5 flex flex-wrap items-center justify-between text-xs border-b gap-2 ${
+          isClassic ? 'border-black/20' : 'border-blue-900/60 bg-[#00274e]'
+        }`}>
           <div className="flex items-center gap-3">
             <span className={`px-2 py-0.5 font-bold uppercase rounded text-[11px] tracking-wider ${
-              isClassic ? 'bg-amber-400 text-black' : 'bg-amber-300 text-slate-900 font-black'
+              isClassic ? 'bg-amber-400 text-black' : 'bg-white text-blue-950 font-black shadow-sm'
             }`}>
-              Tally.ERP 9 / Prime
+              TallyEdu ERP
             </span>
-            <span className="font-semibold text-emerald-300 flex items-center gap-1">
+            <span className="font-semibold text-emerald-300 flex items-center gap-1.5 text-xs">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              {company.isEducationalMode ? 'Educational Mode (Active)' : 'Licensed Enterprise'}
+              {company.isEducationalMode ? 'Educational Mode' : 'Licensed Enterprise'}
             </span>
-            <span className="text-slate-400 hidden sm:inline">|</span>
-            <span className="hidden sm:inline font-mono text-slate-300">
-              Tax ID: <strong className="text-amber-200">{company.gstinOrTaxId}</strong>
+            <span className="text-blue-300/40 hidden sm:inline">|</span>
+            <span className="hidden sm:inline font-mono text-blue-100 text-xs">
+              Tax ID: <strong className="text-amber-300">{company.gstinOrTaxId}</strong>
             </span>
           </div>
 
-          <div className="flex items-center gap-3 text-xs">
+          <div className="flex items-center gap-2.5 text-xs">
             <button
               onClick={() => onOpenVoucherModal()}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-sm transition-all"
+              className="flex items-center gap-1.5 px-3 py-1 rounded bg-blue-500 hover:bg-blue-400 text-white font-semibold shadow transition-all active:scale-95"
               title="Add New Accounting Voucher (Ctrl+V)"
             >
               <PlusCircle className="w-3.5 h-3.5" />
-              <span>Voucher Entry</span>
+              <span>+ Voucher Entry</span>
             </button>
 
             <button
               onClick={toggleTheme}
-              className={`flex items-center gap-1 px-2 py-1 rounded border text-[11px] transition-all ${
+              className={`flex items-center gap-1 px-2.5 py-1 rounded border text-[11px] transition-all font-medium ${
                 isClassic 
                   ? 'border-emerald-600 bg-emerald-950/60 hover:bg-emerald-900 text-emerald-200' 
-                  : 'border-sky-500 bg-sky-950/50 hover:bg-sky-900 text-sky-200'
+                  : 'border-blue-400/50 bg-blue-800/40 hover:bg-blue-800 text-white'
               }`}
-              title="Toggle between Classic Tally ERP 9 Green & Modern Tally Prime Blue"
+              title="Toggle Theme"
             >
               <Palette className="w-3 h-3" />
-              <span>{isClassic ? 'ERP 9 Theme' : 'Prime Theme'}</span>
+              <span>{isClassic ? 'Retro Green' : 'White & Blue'}</span>
             </button>
 
             <button
               onClick={() => setShowKeyHelp(true)}
-              className="flex items-center gap-1 px-2 py-1 rounded border border-slate-600 hover:bg-slate-700/60 text-slate-200 text-[11px]"
+              className="flex items-center gap-1 px-2.5 py-1 rounded border border-blue-400/40 hover:bg-blue-800/60 text-white text-[11px]"
               title="Keyboard Shortcuts Guide"
             >
               <Keyboard className="w-3 h-3" />
               <span className="hidden md:inline">Hotkeys</span>
             </button>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 border-l border-blue-800/80 pl-2">
               <button
                 onClick={exportBackupJson}
-                className="p-1 rounded hover:bg-black/30 text-slate-300 hover:text-white"
+                className="p-1 rounded hover:bg-white/10 text-blue-200 hover:text-white"
                 title="Export Company Backup (JSON)"
               >
                 <Download className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => setShowImportModal(true)}
-                className="p-1 rounded hover:bg-black/30 text-slate-300 hover:text-white"
+                className="p-1 rounded hover:bg-white/10 text-blue-200 hover:text-white"
                 title="Restore / Import Backup"
               >
                 <Upload className="w-3.5 h-3.5" />
@@ -153,7 +155,7 @@ export const TallyHeader: React.FC<TallyHeaderProps> = ({ onOpenVoucherModal }) 
                     resetToSampleData();
                   }
                 }}
-                className="p-1 rounded hover:bg-rose-900/40 text-amber-300 hover:text-rose-300"
+                className="p-1 rounded hover:bg-rose-500/20 text-rose-300 hover:text-rose-200"
                 title="Reset to Sample Company Data"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -163,37 +165,41 @@ export const TallyHeader: React.FC<TallyHeaderProps> = ({ onOpenVoucherModal }) 
         </div>
 
         {/* Company Header Row */}
-        <div className="px-4 py-2.5 flex flex-wrap items-center justify-between gap-4">
+        <div className={`px-4 py-3 flex flex-wrap items-center justify-between gap-4 ${
+          isClassic ? '' : 'bg-[#003366]'
+        }`}>
           <div className="flex items-center gap-3">
-            <div className={`p-2 rounded font-bold text-lg flex items-center justify-center ${
-              isClassic ? 'bg-[#043333] text-amber-300 border border-[#0d5555]' : 'bg-[#0f3d64] text-cyan-300 border border-sky-700'
+            <div className={`p-2.5 rounded-lg font-bold flex items-center justify-center shadow ${
+              isClassic ? 'bg-[#043333] text-amber-300 border border-[#0d5555]' : 'bg-white text-blue-800 border border-blue-200'
             }`}>
               <Building2 className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="font-bold text-base tracking-wide uppercase text-white font-mono">
+                <h1 className="font-bold text-base tracking-wide uppercase text-white font-sans">
                   {company.companyName}
                 </h1>
-                <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">
-                  Active Books
+                <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded ${
+                  isClassic ? 'bg-emerald-950 text-emerald-300' : 'bg-blue-800/80 text-blue-100 border border-blue-400/40'
+                }`}>
+                  Live Financials
                 </span>
               </div>
-              <p className="text-xs text-slate-300/80 font-mono">
+              <p className="text-xs text-blue-200 font-sans">
                 {company.legalName}
               </p>
             </div>
           </div>
 
-          {/* Current Period & Date Display (Signature Tally Block) */}
-          <div className="flex items-center gap-4 text-xs font-mono">
+          {/* Current Period & Date Display */}
+          <div className="flex items-center gap-3 text-xs font-mono">
             <div className={`px-3 py-1.5 rounded border ${
               isClassic 
                 ? 'bg-[#032b2b] border-[#0c4e4e] text-amber-100' 
-                : 'bg-[#093252] border-[#134e7a] text-sky-100'
+                : 'bg-white/10 border-blue-400/30 text-white backdrop-blur-sm'
             }`}>
-              <div className="text-[10px] uppercase text-slate-400">Current Period</div>
-              <div className="font-bold text-amber-300">
+              <div className="text-[10px] uppercase text-blue-200">Financial Period</div>
+              <div className="font-bold text-white">
                 {company.financialYearStart} to {company.financialYearEnd}
               </div>
             </div>
@@ -201,11 +207,11 @@ export const TallyHeader: React.FC<TallyHeaderProps> = ({ onOpenVoucherModal }) 
             <div className={`px-3 py-1.5 rounded border ${
               isClassic 
                 ? 'bg-[#032b2b] border-[#0c4e4e] text-amber-100' 
-                : 'bg-[#093252] border-[#134e7a] text-sky-100'
+                : 'bg-white/10 border-blue-400/30 text-white backdrop-blur-sm'
             }`}>
-              <div className="text-[10px] uppercase text-slate-400 flex items-center gap-1">
+              <div className="text-[10px] uppercase text-blue-200 flex items-center gap-1">
                 <Calendar className="w-2.5 h-2.5" />
-                <span>Current Date</span>
+                <span>Accounting Date</span>
               </div>
               <div className="font-bold text-emerald-300">
                 {company.currentAccountingDate}
@@ -215,8 +221,10 @@ export const TallyHeader: React.FC<TallyHeaderProps> = ({ onOpenVoucherModal }) 
         </div>
 
         {/* Horizontal Navigation Menu / Routes */}
-        <nav className={`px-3 flex items-center overflow-x-auto text-xs font-mono font-medium border-t ${
-          isClassic ? 'bg-[#051c1c] border-[#0c4e4e]' : 'bg-[#071f33] border-[#0c3f66]'
+        <nav className={`px-4 flex items-center overflow-x-auto text-xs font-medium border-t transition-colors ${
+          isClassic 
+            ? 'bg-[#051c1c] border-[#0c4e4e]' 
+            : 'bg-white border-slate-200 text-slate-700 shadow-sm'
         }`}>
           {navLinks.map((item) => {
             const isActive = location.pathname === item.path;
@@ -224,15 +232,17 @@ export const TallyHeader: React.FC<TallyHeaderProps> = ({ onOpenVoucherModal }) 
               <Link
                 key={item.path}
                 to={item.path}
-                className={`px-3.5 py-2.5 whitespace-nowrap transition-colors flex items-center gap-1.5 border-b-2 ${
+                className={`px-3.5 py-2.5 whitespace-nowrap transition-all flex items-center gap-1.5 border-b-2 font-semibold ${
                   isActive
                     ? isClassic
-                      ? 'border-amber-400 text-amber-300 bg-[#082929] font-bold'
-                      : 'border-sky-400 text-sky-200 bg-[#0c2f4d] font-bold'
-                    : 'border-transparent text-slate-300 hover:text-white hover:bg-white/5'
+                      ? 'border-amber-400 text-amber-300 bg-[#082929]'
+                      : 'border-blue-600 text-blue-700 bg-blue-50/80 font-bold'
+                    : isClassic
+                    ? 'border-transparent text-slate-300 hover:text-white hover:bg-white/5'
+                    : 'border-transparent text-slate-600 hover:text-blue-600 hover:bg-slate-50'
                 }`}
               >
-                {item.label === 'Savings & Income' && <PiggyBank className="w-3.5 h-3.5 text-amber-400" />}
+                {item.label === 'Savings & Income' && <PiggyBank className="w-3.5 h-3.5 text-blue-600" />}
                 <span>{item.label}</span>
               </Link>
             );
@@ -242,50 +252,50 @@ export const TallyHeader: React.FC<TallyHeaderProps> = ({ onOpenVoucherModal }) 
 
       {/* Keyboard Shortcuts Modal */}
       {showKeyHelp && (
-        <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 text-slate-100 rounded-lg max-w-lg w-full p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="font-bold text-base flex items-center gap-2 text-amber-400 font-mono">
-                <Keyboard className="w-5 h-5" />
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 text-slate-800 rounded-xl max-w-lg w-full p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-base flex items-center gap-2 text-blue-800">
+                <Keyboard className="w-5 h-5 text-blue-600" />
                 Tally Keyboard Shortcuts
               </h3>
               <button 
                 onClick={() => setShowKeyHelp(false)}
-                className="text-slate-400 hover:text-white font-bold"
+                className="text-slate-400 hover:text-slate-700 font-bold text-lg"
               >
                 ✕
               </button>
             </div>
-            <div className="mt-4 grid grid-cols-2 gap-3 font-mono text-xs">
-              <div className="p-2.5 bg-slate-800/80 rounded border border-slate-700">
-                <span className="font-bold text-amber-300">F4</span>: Contra Voucher (Bank/Cash)
+            <div className="mt-4 grid grid-cols-2 gap-3 text-xs font-mono">
+              <div className="p-2.5 bg-blue-50/60 rounded-lg border border-blue-100 text-blue-900">
+                <span className="font-bold text-blue-700">F4</span>: Contra (Bank ⇄ Cash)
               </div>
-              <div className="p-2.5 bg-slate-800/80 rounded border border-slate-700">
-                <span className="font-bold text-amber-300">F5</span>: Payment Voucher (Expenses)
+              <div className="p-2.5 bg-rose-50/60 rounded-lg border border-rose-100 text-rose-900">
+                <span className="font-bold text-rose-700">F5</span>: Payment (Expenses)
               </div>
-              <div className="p-2.5 bg-slate-800/80 rounded border border-slate-700">
-                <span className="font-bold text-amber-300">F6</span>: Receipt Voucher (Incomes)
+              <div className="p-2.5 bg-emerald-50/60 rounded-lg border border-emerald-100 text-emerald-900">
+                <span className="font-bold text-emerald-700">F6</span>: Receipt (Incomes)
               </div>
-              <div className="p-2.5 bg-slate-800/80 rounded border border-slate-700">
-                <span className="font-bold text-amber-300">F7</span>: Journal Voucher (Adjustments)
+              <div className="p-2.5 bg-purple-50/60 rounded-lg border border-purple-100 text-purple-900">
+                <span className="font-bold text-purple-700">F7</span>: Journal (Adjust)
               </div>
-              <div className="p-2.5 bg-slate-800/80 rounded border border-slate-700">
-                <span className="font-bold text-amber-300">F8</span>: Sales Voucher (Billing)
+              <div className="p-2.5 bg-sky-50/60 rounded-lg border border-sky-100 text-sky-900">
+                <span className="font-bold text-sky-700">F8</span>: Sales (Billing)
               </div>
-              <div className="p-2.5 bg-slate-800/80 rounded border border-slate-700">
-                <span className="font-bold text-amber-300">F9</span>: Purchase Voucher (Inward)
+              <div className="p-2.5 bg-orange-50/60 rounded-lg border border-orange-100 text-orange-900">
+                <span className="font-bold text-orange-700">F9</span>: Purchase (Inward)
               </div>
-              <div className="p-2.5 bg-slate-800/80 rounded border border-slate-700">
-                <span className="font-bold text-amber-300">Esc</span>: Close Modal / Back
+              <div className="p-2.5 bg-slate-100 rounded-lg border border-slate-200 text-slate-800">
+                <span className="font-bold text-slate-900">Esc</span>: Close Modal / Back
               </div>
-              <div className="p-2.5 bg-slate-800/80 rounded border border-slate-700">
-                <span className="font-bold text-amber-300">Ctrl + V</span>: Quick New Voucher
+              <div className="p-2.5 bg-slate-100 rounded-lg border border-slate-200 text-slate-800">
+                <span className="font-bold text-slate-900">Ctrl + V</span>: Quick New Voucher
               </div>
             </div>
             <div className="mt-6 flex justify-end">
               <button
                 onClick={() => setShowKeyHelp(false)}
-                className="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-xs font-semibold text-white"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-xs font-semibold text-white shadow"
               >
                 Close (Esc)
               </button>
@@ -296,16 +306,16 @@ export const TallyHeader: React.FC<TallyHeaderProps> = ({ onOpenVoucherModal }) 
 
       {/* Import Modal */}
       {showImportModal && (
-        <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 text-slate-100 rounded-lg max-w-lg w-full p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="font-bold text-base flex items-center gap-2 text-cyan-400 font-mono">
-                <Upload className="w-5 h-5" />
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 text-slate-800 rounded-xl max-w-lg w-full p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-base flex items-center gap-2 text-blue-800">
+                <Upload className="w-5 h-5 text-blue-600" />
                 Restore / Import Accounting Data
               </h3>
               <button 
                 onClick={() => setShowImportModal(false)}
-                className="text-slate-400 hover:text-white font-bold"
+                className="text-slate-400 hover:text-slate-700 font-bold"
               >
                 ✕
               </button>
@@ -313,36 +323,36 @@ export const TallyHeader: React.FC<TallyHeaderProps> = ({ onOpenVoucherModal }) 
 
             <div className="mt-4 space-y-4 text-xs font-mono">
               <div>
-                <label className="block text-slate-300 mb-1 font-semibold">Option A: Upload Backup JSON File</label>
+                <label className="block text-slate-700 mb-1 font-semibold">Option A: Upload Backup JSON File</label>
                 <input 
                   type="file" 
                   accept=".json"
                   onChange={handleFileImport}
-                  className="block w-full text-slate-300 file:mr-4 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-sky-600 file:text-white hover:file:bg-sky-500 cursor-pointer"
+                  className="block w-full text-slate-700 file:mr-4 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer border border-slate-200 rounded p-1"
                 />
               </div>
 
-              <div className="border-t border-slate-800 pt-3">
-                <label className="block text-slate-300 mb-1 font-semibold">Option B: Paste JSON Backup</label>
+              <div className="border-t border-slate-100 pt-3">
+                <label className="block text-slate-700 mb-1 font-semibold">Option B: Paste JSON Backup</label>
                 <textarea
                   value={importText}
                   onChange={(e) => setImportText(e.target.value)}
                   placeholder="Paste JSON content here..."
                   rows={4}
-                  className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-sky-500"
+                  className="w-full bg-slate-50 border border-slate-300 rounded p-2 text-xs font-mono text-slate-800 focus:outline-none focus:border-blue-500"
                 />
                 <button
                   onClick={handleTextImport}
                   disabled={!importText.trim()}
-                  className="mt-2 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 rounded text-white text-xs font-semibold"
+                  className="mt-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded text-white text-xs font-semibold"
                 >
                   Import From Text
                 </button>
               </div>
 
               {importStatus && (
-                <div className={`p-2 rounded text-xs font-bold ${
-                  importStatus.includes('success') ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-rose-950 text-rose-300 border border-rose-800'
+                <div className={`p-2.5 rounded text-xs font-bold ${
+                  importStatus.includes('success') ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
                 }`}>
                   {importStatus}
                 </div>
@@ -352,7 +362,7 @@ export const TallyHeader: React.FC<TallyHeaderProps> = ({ onOpenVoucherModal }) 
             <div className="mt-6 flex justify-end">
               <button
                 onClick={() => setShowImportModal(false)}
-                className="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-xs font-semibold text-white"
+                className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 rounded text-xs font-semibold text-slate-700"
               >
                 Cancel
               </button>

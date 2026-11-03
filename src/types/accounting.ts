@@ -65,7 +65,7 @@ export interface CompanySettings {
   financialYearEnd: string;   // YYYY-MM-DD
   currentAccountingDate: string;
   isEducationalMode: boolean;
-  theme: 'classic' | 'prime'; // 'classic' = Tally ERP 9 green, 'prime' = Tally Prime navy
+  theme: 'white-blue' | 'classic' | 'prime'; // 'white-blue' = Modern White & Blue, 'classic' = Tally ERP 9 green
 }
 
 export interface SavingsConfig {
@@ -114,3 +114,4 @@ export interface BalanceSheetSummary {
   isBalanced: boolean;
   difference: number;
 }
+

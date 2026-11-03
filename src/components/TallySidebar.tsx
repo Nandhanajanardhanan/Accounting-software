@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAccounting } from '../context/AccountingContext';
-import { VoucherType } from '../types/accounting';
+import type { VoucherType } from '../types/accounting';
 
 interface TallySidebarProps {
   onOpenVoucher: (type: VoucherType) => void;
@@ -40,7 +40,6 @@ export const TallySidebar: React.FC<TallySidebarProps> = ({ onOpenVoucher }) => 
           onOpenVoucher('PURCHASE');
           break;
         case 'Escape':
-          // Esc goes back to Gateway
           navigate('/');
           break;
         default:
@@ -67,31 +66,35 @@ export const TallySidebar: React.FC<TallySidebarProps> = ({ onOpenVoucher }) => 
   }, [onOpenVoucher, navigate]);
 
   const buttons = [
-    { key: 'F4', label: 'Contra', desc: 'Bank/Cash', action: () => onOpenVoucher('CONTRA'), color: 'text-amber-300' },
-    { key: 'F5', label: 'Payment', desc: 'Expenses', action: () => onOpenVoucher('PAYMENT'), color: 'text-rose-300' },
-    { key: 'F6', label: 'Receipt', desc: 'Incomes', action: () => onOpenVoucher('RECEIPT'), color: 'text-emerald-300' },
-    { key: 'F7', label: 'Journal', desc: 'Adjust', action: () => onOpenVoucher('JOURNAL'), color: 'text-purple-300' },
-    { key: 'F8', label: 'Sales', desc: 'Billing', action: () => onOpenVoucher('SALES'), color: 'text-blue-300' },
-    { key: 'F9', label: 'Purchase', desc: 'Inward', action: () => onOpenVoucher('PURCHASE'), color: 'text-orange-300' },
-    { key: 'Alt+S', label: 'Savings', desc: 'Surplus', action: () => navigate('/savings'), color: 'text-yellow-300' },
-    { key: 'Alt+P', label: 'P & L', desc: 'Account', action: () => navigate('/pnl'), color: 'text-cyan-300' },
-    { key: 'Alt+B', label: 'B/Sheet', desc: 'Capital', action: () => navigate('/balance-sheet'), color: 'text-teal-300' },
-    { key: 'Esc', label: 'Gateway', desc: 'Home', action: () => navigate('/'), color: 'text-slate-300' },
+    { key: 'F4', label: 'Contra', desc: 'Bank/Cash', action: () => onOpenVoucher('CONTRA'), color: 'text-amber-600' },
+    { key: 'F5', label: 'Payment', desc: 'Expenses', action: () => onOpenVoucher('PAYMENT'), color: 'text-rose-600' },
+    { key: 'F6', label: 'Receipt', desc: 'Incomes', action: () => onOpenVoucher('RECEIPT'), color: 'text-emerald-600' },
+    { key: 'F7', label: 'Journal', desc: 'Adjust', action: () => onOpenVoucher('JOURNAL'), color: 'text-purple-600' },
+    { key: 'F8', label: 'Sales', desc: 'Billing', action: () => onOpenVoucher('SALES'), color: 'text-blue-600' },
+    { key: 'F9', label: 'Purchase', desc: 'Inward', action: () => onOpenVoucher('PURCHASE'), color: 'text-orange-600' },
+    { key: 'Alt+S', label: 'Savings', desc: 'Surplus', action: () => navigate('/savings'), color: 'text-indigo-600' },
+    { key: 'Alt+P', label: 'P & L', desc: 'Account', action: () => navigate('/pnl'), color: 'text-sky-600' },
+    { key: 'Alt+B', label: 'B/Sheet', desc: 'Capital', action: () => navigate('/balance-sheet'), color: 'text-teal-600' },
+    { key: 'Esc', label: 'Gateway', desc: 'Home', action: () => navigate('/'), color: 'text-slate-600' },
   ];
 
   return (
     <aside
-      className={`hidden md:flex flex-col w-28 shrink-0 border-l select-none font-mono text-xs ${
+      className={`hidden md:flex flex-col w-28 shrink-0 border-l select-none font-mono text-xs shadow-xs ${
         isClassic
           ? 'bg-[#002626] border-[#0c4e4e]'
-          : 'bg-[#002b49] border-[#0b4870]'
+          : 'bg-white border-slate-200 text-slate-700'
       }`}
     >
-      <div className="py-2 text-center text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-white/10">
+      <div className={`py-2.5 text-center text-[10px] font-bold uppercase tracking-wider border-b ${
+        isClassic ? 'text-slate-400 border-white/10' : 'text-blue-900 bg-blue-50/70 border-slate-200'
+      }`}>
         Tally Keys
       </div>
 
-      <div className="flex-1 flex flex-col divide-y divide-white/10 overflow-y-auto">
+      <div className={`flex-1 flex flex-col divide-y overflow-y-auto ${
+        isClassic ? 'divide-white/10' : 'divide-slate-100'
+      }`}>
         {buttons.map((btn) => (
           <button
             key={btn.key}
@@ -99,16 +102,16 @@ export const TallySidebar: React.FC<TallySidebarProps> = ({ onOpenVoucher }) => 
             className={`w-full py-2.5 px-2 flex flex-col items-center justify-center transition-all text-left group ${
               isClassic
                 ? 'hover:bg-[#073f3f] active:bg-[#0b4f4f]'
-                : 'hover:bg-[#0c3e66] active:bg-[#0f4e82]'
+                : 'hover:bg-blue-50/80 active:bg-blue-100 text-slate-800'
             }`}
           >
             <span className={`font-bold text-xs tracking-tight ${btn.color} group-hover:scale-105 transition-transform`}>
               {btn.key}
             </span>
-            <span className="text-[11px] font-medium text-slate-200">
+            <span className="text-[11px] font-semibold text-slate-800 group-hover:text-blue-700 transition-colors">
               {btn.label}
             </span>
-            <span className="text-[9px] text-slate-400">
+            <span className="text-[9px] text-slate-400 group-hover:text-slate-600 transition-colors">
               {btn.desc}
             </span>
           </button>

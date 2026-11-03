@@ -5,3 +5,4 @@ echo   Starting TallyEdu Accounting Software
 echo ========================================================
 npm.cmd run dev
 pause
+

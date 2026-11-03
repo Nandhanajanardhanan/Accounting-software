@@ -17,21 +17,16 @@ import type { InvoiceItem } from '../types/accounting';
 export const VoucherSessionPage: React.FC = () => {
   const { company, ledgers, addVoucher, vouchers, deleteVoucher, getLedgerBalance } = useAccounting();
 
-  // Active Session Tab: 'CASH' | 'BANK' | 'PURCHASE' | 'SALE'
   const [activeTab, setActiveTab] = useState<'CASH' | 'BANK' | 'PURCHASE' | 'SALE'>('CASH');
 
-  // Form Fields
   const [date, setDate] = useState<string>(company.currentAccountingDate);
   const [amount, setAmount] = useState<string>('');
   const [narration, setNarration] = useState<string>('');
   const [referenceNo, setReferenceNo] = useState<string>('');
 
-  // Tab-specific selectors
-  // 1. For Cash Book:
-  const [cashDirection, setCashDirection] = useState<'INFLOW' | 'OUTFLOW'>('INFLOW'); // Inflow = Receipt, Outflow = Payment
+  const [cashDirection, setCashDirection] = useState<'INFLOW' | 'OUTFLOW'>('INFLOW');
   const [cashPartyLedgerId, setCashPartyLedgerId] = useState<string>('');
 
-  // 2. For Bank Book:
   const [bankSubtype, setBankSubtype] = useState<'DEPOSIT' | 'WITHDRAWAL' | 'CONTRA_TO_CASH'>('DEPOSIT');
   const [selectedBankId, setSelectedBankId] = useState<string>(
     ledgers.find((l) => l.group === 'BANK')?.id || ''
@@ -39,7 +34,6 @@ export const VoucherSessionPage: React.FC = () => {
   const [bankPartyLedgerId, setBankPartyLedgerId] = useState<string>('');
   const [chequeNo, setChequeNo] = useState<string>('');
 
-  // 3. For Purchase:
   const [purchaseSupplierId, setPurchaseSupplierId] = useState<string>('');
   const [purchasePaymentMode, setPurchasePaymentMode] = useState<'CREDIT' | 'CASH' | 'BANK'>('CREDIT');
   const [purchaseItems, setPurchaseItems] = useState<InvoiceItem[]>([]);
@@ -47,7 +41,6 @@ export const VoucherSessionPage: React.FC = () => {
   const [pItemQty, setPItemQty] = useState('1');
   const [pItemRate, setPItemRate] = useState('');
 
-  // 4. For Sale:
   const [saleCustomerId, setSaleCustomerId] = useState<string>('');
   const [salePaymentMode, setSalePaymentMode] = useState<'CREDIT' | 'CASH' | 'BANK'>('CREDIT');
   const [saleItems, setSaleItems] = useState<InvoiceItem[]>([]);
@@ -55,7 +48,6 @@ export const VoucherSessionPage: React.FC = () => {
   const [sItemQty, setSItemQty] = useState('1');
   const [sItemRate, setSItemRate] = useState('');
 
-  // Notifications
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const cashLedger = ledgers.find((l) => l.group === 'CASH');
@@ -63,7 +55,6 @@ export const VoucherSessionPage: React.FC = () => {
   const purchaseLedger = ledgers.find((l) => l.id === 'led_purchase' || l.group === 'DIRECT_EXPENSE');
   const salesLedger = ledgers.find((l) => l.id === 'led_sales' || l.group === 'DIRECT_INCOME');
 
-  // Handle Add Item for Purchase
   const handleAddPurchaseItem = () => {
     if (!pItemName.trim() || !pItemRate || Number(pItemRate) <= 0) return;
     const qty = Math.max(1, Number(pItemQty) || 1);
@@ -85,7 +76,6 @@ export const VoucherSessionPage: React.FC = () => {
     setPItemRate('');
   };
 
-  // Handle Add Item for Sale
   const handleAddSaleItem = () => {
     if (!sItemName.trim() || !sItemRate || Number(sItemRate) <= 0) return;
     const qty = Math.max(1, Number(sItemQty) || 1);
@@ -125,7 +115,6 @@ export const VoucherSessionPage: React.FC = () => {
         }
 
         if (cashDirection === 'INFLOW') {
-          // Cash Inflow: Debit Cash, Credit Party
           addVoucher({
             voucherType: 'RECEIPT',
             date,
@@ -138,7 +127,6 @@ export const VoucherSessionPage: React.FC = () => {
             category: 'CASH',
           });
         } else {
-          // Cash Outflow: Debit Party/Expense, Credit Cash
           addVoucher({
             voucherType: 'PAYMENT',
             date,
@@ -159,7 +147,6 @@ export const VoucherSessionPage: React.FC = () => {
         }
 
         if (bankSubtype === 'CONTRA_TO_CASH') {
-          // Contra: Cash to Bank
           addVoucher({
             voucherType: 'CONTRA',
             date,
@@ -190,7 +177,6 @@ export const VoucherSessionPage: React.FC = () => {
             category: 'BANK',
           });
         } else {
-          // WITHDRAWAL / PAYMENT
           if (!bankPartyLedgerId) {
             setFeedback({ type: 'error', message: 'Please select payee / expense ledger.' });
             return;
@@ -265,7 +251,6 @@ export const VoucherSessionPage: React.FC = () => {
         message: `✓ ${activeTab} transaction successfully recorded into company books!`,
       });
 
-      // Clear input fields
       setAmount('');
       setReferenceNo('');
       setNarration('');
@@ -277,60 +262,59 @@ export const VoucherSessionPage: React.FC = () => {
     }
   };
 
-  // Recent 6 transactions
   const recentVouchers = [...vouchers].reverse().slice(0, 6);
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 font-mono text-xs">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 text-xs font-sans">
       {/* Session Header */}
-      <div className="border-b border-white/10 pb-4">
+      <div className="border-b border-slate-200 pb-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-emerald-950/80 text-emerald-400 border border-emerald-800">
+            <div className="p-2.5 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 shadow-xs">
               <Layers className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold text-white uppercase tracking-wide">
+                <h1 className="text-lg font-bold text-slate-900 tracking-tight">
                   Universal Transaction Input Session
                 </h1>
-                <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-900/60 text-emerald-300 border border-emerald-700">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-blue-100 text-blue-800">
                   Route: /session
                 </span>
               </div>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 A single unified session where you can give inputs for Cash Book, Bank, Purchases, and Sales
               </p>
             </div>
           </div>
 
-          <div className="text-xs text-slate-400">
-            Current Accounting Date: <strong className="text-emerald-300">{company.currentAccountingDate}</strong>
+          <div className="text-xs text-slate-500 font-medium">
+            Accounting Date: <strong className="text-blue-900 font-mono">{company.currentAccountingDate}</strong>
           </div>
         </div>
       </div>
 
-      {/* 4 Primary Input Session Tabs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      {/* 4 Primary Input Session Tabs in White & Blue */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <button
           onClick={() => {
             setActiveTab('CASH');
             setFeedback(null);
           }}
-          className={`p-3.5 rounded-lg border flex items-center justify-between transition-all ${
+          className={`p-4 rounded-xl border flex items-center justify-between transition-all ${
             activeTab === 'CASH'
-              ? 'bg-emerald-950/90 border-emerald-400 text-emerald-200 shadow-lg ring-1 ring-emerald-400'
-              : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800/80'
+              ? 'bg-blue-600 border-blue-600 text-white shadow-md'
+              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
           }`}
         >
-          <div className="flex items-center gap-2.5">
-            <Wallet className="w-5 h-5 text-emerald-400" />
+          <div className="flex items-center gap-3">
+            <Wallet className={`w-5 h-5 ${activeTab === 'CASH' ? 'text-white' : 'text-emerald-600'}`} />
             <div className="text-left">
               <div className="font-bold text-xs uppercase">Cash Book Input</div>
-              <div className="text-[10px] text-slate-400">Receipts & Payments</div>
+              <div className={`text-[10px] ${activeTab === 'CASH' ? 'text-blue-100' : 'text-slate-400'}`}>Receipts & Payments</div>
             </div>
           </div>
-          <ArrowRight className="w-3.5 h-3.5" />
+          <ArrowRight className="w-4 h-4 opacity-75" />
         </button>
 
         <button
@@ -338,20 +322,20 @@ export const VoucherSessionPage: React.FC = () => {
             setActiveTab('BANK');
             setFeedback(null);
           }}
-          className={`p-3.5 rounded-lg border flex items-center justify-between transition-all ${
+          className={`p-4 rounded-xl border flex items-center justify-between transition-all ${
             activeTab === 'BANK'
-              ? 'bg-sky-950/90 border-sky-400 text-sky-200 shadow-lg ring-1 ring-sky-400'
-              : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800/80'
+              ? 'bg-blue-600 border-blue-600 text-white shadow-md'
+              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
           }`}
         >
-          <div className="flex items-center gap-2.5">
-            <Landmark className="w-5 h-5 text-sky-400" />
+          <div className="flex items-center gap-3">
+            <Landmark className={`w-5 h-5 ${activeTab === 'BANK' ? 'text-white' : 'text-blue-600'}`} />
             <div className="text-left">
               <div className="font-bold text-xs uppercase">Bank Book Input</div>
-              <div className="text-[10px] text-slate-400">Deposits, RTGS, Contra</div>
+              <div className={`text-[10px] ${activeTab === 'BANK' ? 'text-blue-100' : 'text-slate-400'}`}>Deposits, RTGS, Contra</div>
             </div>
           </div>
-          <ArrowRight className="w-3.5 h-3.5" />
+          <ArrowRight className="w-4 h-4 opacity-75" />
         </button>
 
         <button
@@ -359,20 +343,20 @@ export const VoucherSessionPage: React.FC = () => {
             setActiveTab('PURCHASE');
             setFeedback(null);
           }}
-          className={`p-3.5 rounded-lg border flex items-center justify-between transition-all ${
+          className={`p-4 rounded-xl border flex items-center justify-between transition-all ${
             activeTab === 'PURCHASE'
-              ? 'bg-orange-950/90 border-orange-400 text-orange-200 shadow-lg ring-1 ring-orange-400'
-              : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800/80'
+              ? 'bg-blue-600 border-blue-600 text-white shadow-md'
+              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
           }`}
         >
-          <div className="flex items-center gap-2.5">
-            <ShoppingCart className="w-5 h-5 text-orange-400" />
+          <div className="flex items-center gap-3">
+            <ShoppingCart className={`w-5 h-5 ${activeTab === 'PURCHASE' ? 'text-white' : 'text-orange-600'}`} />
             <div className="text-left">
               <div className="font-bold text-xs uppercase">Purchase Input</div>
-              <div className="text-[10px] text-slate-400">Vendor Bills & Inward</div>
+              <div className={`text-[10px] ${activeTab === 'PURCHASE' ? 'text-blue-100' : 'text-slate-400'}`}>Vendor Bills & Inward</div>
             </div>
           </div>
-          <ArrowRight className="w-3.5 h-3.5" />
+          <ArrowRight className="w-4 h-4 opacity-75" />
         </button>
 
         <button
@@ -380,37 +364,37 @@ export const VoucherSessionPage: React.FC = () => {
             setActiveTab('SALE');
             setFeedback(null);
           }}
-          className={`p-3.5 rounded-lg border flex items-center justify-between transition-all ${
+          className={`p-4 rounded-xl border flex items-center justify-between transition-all ${
             activeTab === 'SALE'
-              ? 'bg-blue-950/90 border-blue-400 text-blue-200 shadow-lg ring-1 ring-blue-400'
-              : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800/80'
+              ? 'bg-blue-600 border-blue-600 text-white shadow-md'
+              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
           }`}
         >
-          <div className="flex items-center gap-2.5">
-            <Receipt className="w-5 h-5 text-blue-400" />
+          <div className="flex items-center gap-3">
+            <Receipt className={`w-5 h-5 ${activeTab === 'SALE' ? 'text-white' : 'text-blue-600'}`} />
             <div className="text-left">
               <div className="font-bold text-xs uppercase">Sale Input</div>
-              <div className="text-[10px] text-slate-400">Customer Tax Invoices</div>
+              <div className={`text-[10px] ${activeTab === 'SALE' ? 'text-blue-100' : 'text-slate-400'}`}>Customer Tax Invoices</div>
             </div>
           </div>
-          <ArrowRight className="w-3.5 h-3.5" />
+          <ArrowRight className="w-4 h-4 opacity-75" />
         </button>
       </div>
 
       {/* Main Input Form Container */}
-      <div className="border border-slate-800 rounded-lg p-5 bg-slate-950/80 shadow-2xl space-y-4">
+      <div className="border border-slate-200 rounded-xl p-6 bg-white shadow-xs space-y-4">
         {feedback && (
           <div
-            className={`p-3 rounded-lg flex items-center gap-2 text-xs font-semibold ${
+            className={`p-3.5 rounded-lg flex items-center gap-2.5 text-xs font-semibold ${
               feedback.type === 'success'
-                ? 'bg-emerald-950 text-emerald-200 border border-emerald-800'
-                : 'bg-rose-950 text-rose-200 border border-rose-800'
+                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                : 'bg-rose-50 text-rose-800 border border-rose-200'
             }`}
           >
             {feedback.type === 'success' ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             ) : (
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
             )}
             <span>{feedback.message}</span>
           </div>
@@ -418,31 +402,31 @@ export const VoucherSessionPage: React.FC = () => {
 
         <form onSubmit={handleSessionSubmit} className="space-y-4">
           {/* Row 1: Date & Common Reference */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
             <div>
-              <label className="block text-slate-300 mb-1 font-semibold">Transaction Date</label>
+              <label className="block text-slate-700 mb-1 font-semibold text-xs">Transaction Date</label>
               <input
                 type="date"
                 required
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-slate-300 mb-1 font-semibold">Reference / Bill / Cheque No.</label>
+              <label className="block text-slate-700 mb-1 font-semibold text-xs">Reference / Bill / Cheque No.</label>
               <input
                 type="text"
                 placeholder={activeTab === 'PURCHASE' ? 'BILL-101' : activeTab === 'SALE' ? 'INV-101' : 'REF-001'}
                 value={referenceNo}
                 onChange={(e) => setReferenceNo(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-slate-300 mb-1 font-bold text-amber-400">
+              <label className="block text-slate-800 mb-1 font-bold text-blue-900 text-xs">
                 Amount ({company.currencySymbol})
               </label>
               <input
@@ -453,31 +437,30 @@ export const VoucherSessionPage: React.FC = () => {
                 placeholder="0.00"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full bg-slate-950 border-2 border-amber-400 rounded px-3 py-1.5 font-bold text-amber-300 text-sm focus:outline-none"
+                className="w-full bg-white border-2 border-blue-600 rounded-lg px-3 py-1.5 font-bold text-blue-800 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
             </div>
           </div>
 
-          {/* TAB SPECIFIC FORM FIELDS */}
           {/* TAB 1: CASH BOOK INPUT */}
           {activeTab === 'CASH' && (
-            <div className="p-4 bg-emerald-950/20 border border-emerald-900/50 rounded-lg space-y-3">
-              <div className="flex items-center justify-between text-emerald-400 font-bold uppercase text-[11px]">
+            <div className="p-4 bg-emerald-50/50 border border-emerald-200 rounded-xl space-y-3">
+              <div className="flex items-center justify-between text-emerald-900 font-bold uppercase text-[11px]">
                 <span>Cash Book Entry Options</span>
-                <span>Active Till: {getLedgerBalance('led_cash').formatted}</span>
+                <span className="font-mono">Active Till: {getLedgerBalance('led_cash').formatted}</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-slate-300 mb-1 font-semibold">Cash Movement Type</label>
+                  <label className="block text-slate-700 mb-1 font-semibold">Cash Movement Type</label>
                   <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={() => setCashDirection('INFLOW')}
-                      className={`flex-1 py-1.5 rounded font-bold transition-all ${
+                      className={`flex-1 py-2 rounded-lg font-bold transition-all text-xs ${
                         cashDirection === 'INFLOW'
-                          ? 'bg-emerald-600 text-white shadow'
-                          : 'bg-slate-900 text-slate-400 hover:bg-slate-800'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
                       }`}
                     >
                       Cash Receipt (Inflow)
@@ -485,10 +468,10 @@ export const VoucherSessionPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setCashDirection('OUTFLOW')}
-                      className={`flex-1 py-1.5 rounded font-bold transition-all ${
+                      className={`flex-1 py-2 rounded-lg font-bold transition-all text-xs ${
                         cashDirection === 'OUTFLOW'
-                          ? 'bg-rose-600 text-white shadow'
-                          : 'bg-slate-900 text-slate-400 hover:bg-slate-800'
+                          ? 'bg-rose-600 text-white shadow-xs'
+                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
                       }`}
                     >
                       Cash Payment (Outflow)
@@ -497,14 +480,14 @@ export const VoucherSessionPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 mb-1 font-semibold">
+                  <label className="block text-slate-700 mb-1 font-semibold">
                     {cashDirection === 'INFLOW' ? 'Received From (Account/Party):' : 'Paid Towards (Account/Expense):'}
                   </label>
                   <select
                     required
                     value={cashPartyLedgerId}
                     onChange={(e) => setCashPartyLedgerId(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:border-blue-600 shadow-2xs"
                   >
                     <option value="">-- Select Party or Ledger --</option>
                     {ledgers
@@ -522,19 +505,19 @@ export const VoucherSessionPage: React.FC = () => {
 
           {/* TAB 2: BANK BOOK INPUT */}
           {activeTab === 'BANK' && (
-            <div className="p-4 bg-sky-950/20 border border-sky-900/50 rounded-lg space-y-3">
-              <div className="flex items-center justify-between text-sky-400 font-bold uppercase text-[11px]">
+            <div className="p-4 bg-blue-50/50 border border-blue-200 rounded-xl space-y-3">
+              <div className="flex items-center justify-between text-blue-900 font-bold uppercase text-[11px]">
                 <span>Bank Book Entry Options</span>
                 <span>Electronic & Contra Banking</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-slate-300 mb-1 font-semibold">Bank Account</label>
+                  <label className="block text-slate-700 mb-1 font-semibold">Bank Account</label>
                   <select
                     value={selectedBankId}
                     onChange={(e) => setSelectedBankId(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 focus:outline-none focus:border-blue-600"
                   >
                     {bankLedgers.map((b) => (
                       <option key={b.id} value={b.id}>
@@ -545,11 +528,11 @@ export const VoucherSessionPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 mb-1 font-semibold">Transaction Type</label>
+                  <label className="block text-slate-700 mb-1 font-semibold">Transaction Type</label>
                   <select
                     value={bankSubtype}
                     onChange={(e) => setBankSubtype(e.target.value as any)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 focus:outline-none focus:border-blue-600"
                   >
                     <option value="DEPOSIT">Bank Deposit / Receipt</option>
                     <option value="WITHDRAWAL">Bank Payment / Withdrawal</option>
@@ -559,12 +542,12 @@ export const VoucherSessionPage: React.FC = () => {
 
                 {bankSubtype !== 'CONTRA_TO_CASH' && (
                   <div>
-                    <label className="block text-slate-300 mb-1 font-semibold">Party / Ledger Account</label>
+                    <label className="block text-slate-700 mb-1 font-semibold">Party / Ledger Account</label>
                     <select
                       required
                       value={bankPartyLedgerId}
                       onChange={(e) => setBankPartyLedgerId(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 focus:outline-none focus:border-blue-600"
                     >
                       <option value="">-- Select Ledger --</option>
                       {ledgers
@@ -583,20 +566,20 @@ export const VoucherSessionPage: React.FC = () => {
 
           {/* TAB 3: PURCHASE INPUT */}
           {activeTab === 'PURCHASE' && (
-            <div className="p-4 bg-orange-950/20 border border-orange-900/50 rounded-lg space-y-3">
-              <div className="flex items-center justify-between text-orange-400 font-bold uppercase text-[11px]">
+            <div className="p-4 bg-orange-50/50 border border-orange-200 rounded-xl space-y-3">
+              <div className="flex items-center justify-between text-orange-900 font-bold uppercase text-[11px]">
                 <span>Purchase Voucher Input (Inward Inventory)</span>
                 <span>Auto-posts to Trading Account & Stock</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 mb-1 font-semibold">Supplier / Vendor Ledger</label>
+                  <label className="block text-slate-700 mb-1 font-semibold">Supplier / Vendor Ledger</label>
                   <select
                     required
                     value={purchaseSupplierId}
                     onChange={(e) => setPurchaseSupplierId(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 focus:outline-none focus:border-blue-600"
                   >
                     <option value="">-- Select Supplier --</option>
                     {ledgers
@@ -610,11 +593,11 @@ export const VoucherSessionPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 mb-1 font-semibold">Payment Terms / Mode</label>
+                  <label className="block text-slate-700 mb-1 font-semibold">Payment Terms / Mode</label>
                   <select
                     value={purchasePaymentMode}
                     onChange={(e) => setPurchasePaymentMode(e.target.value as any)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 focus:outline-none focus:border-blue-600"
                   >
                     <option value="CREDIT">Supplier Credit (Payable later)</option>
                     <option value="CASH">Immediate Cash</option>
@@ -624,15 +607,15 @@ export const VoucherSessionPage: React.FC = () => {
               </div>
 
               {/* Itemized row */}
-              <div className="pt-2 border-t border-slate-800 space-y-2">
-                <span className="text-[11px] font-bold text-slate-300">Add Items to Purchase Bill:</span>
+              <div className="pt-2 border-t border-orange-200 space-y-2">
+                <span className="text-[11px] font-bold text-slate-700">Add Items to Purchase Bill:</span>
                 <div className="grid grid-cols-12 gap-2">
                   <input
                     type="text"
                     placeholder="Item / Material description"
                     value={pItemName}
                     onChange={(e) => setPItemName(e.target.value)}
-                    className="col-span-5 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                    className="col-span-5 bg-white border border-slate-300 rounded px-2.5 py-1 text-slate-900 text-xs"
                   />
                   <input
                     type="number"
@@ -640,7 +623,7 @@ export const VoucherSessionPage: React.FC = () => {
                     placeholder="Qty"
                     value={pItemQty}
                     onChange={(e) => setPItemQty(e.target.value)}
-                    className="col-span-2 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                    className="col-span-2 bg-white border border-slate-300 rounded px-2 py-1 text-slate-900 text-xs font-mono"
                   />
                   <input
                     type="number"
@@ -649,19 +632,19 @@ export const VoucherSessionPage: React.FC = () => {
                     placeholder="Rate"
                     value={pItemRate}
                     onChange={(e) => setPItemRate(e.target.value)}
-                    className="col-span-3 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                    className="col-span-3 bg-white border border-slate-300 rounded px-2 py-1 text-slate-900 text-xs font-mono"
                   />
                   <button
                     type="button"
                     onClick={handleAddPurchaseItem}
-                    className="col-span-2 bg-orange-500 hover:bg-orange-400 text-black font-bold rounded text-xs"
+                    className="col-span-2 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded text-xs"
                   >
                     + Add Item
                   </button>
                 </div>
 
                 {purchaseItems.length > 0 && (
-                  <div className="text-xs text-orange-300 pt-1">
+                  <div className="text-xs text-orange-800 font-semibold pt-1 font-mono">
                     {purchaseItems.length} items added (Total: {amount})
                   </div>
                 )}
@@ -671,20 +654,20 @@ export const VoucherSessionPage: React.FC = () => {
 
           {/* TAB 4: SALE INPUT */}
           {activeTab === 'SALE' && (
-            <div className="p-4 bg-blue-950/20 border border-blue-900/50 rounded-lg space-y-3">
-              <div className="flex items-center justify-between text-blue-400 font-bold uppercase text-[11px]">
+            <div className="p-4 bg-blue-50/50 border border-blue-200 rounded-xl space-y-3">
+              <div className="flex items-center justify-between text-blue-900 font-bold uppercase text-[11px]">
                 <span>Sales Invoice Input (Customer Billing)</span>
                 <span>Auto-posts to Sales Account & Income</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 mb-1 font-semibold">Customer / Client Ledger</label>
+                  <label className="block text-slate-700 mb-1 font-semibold">Customer / Client Ledger</label>
                   <select
                     required
                     value={saleCustomerId}
                     onChange={(e) => setSaleCustomerId(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 focus:outline-none focus:border-blue-600"
                   >
                     <option value="">-- Select Customer --</option>
                     {ledgers
@@ -698,11 +681,11 @@ export const VoucherSessionPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 mb-1 font-semibold">Settlement Terms / Mode</label>
+                  <label className="block text-slate-700 mb-1 font-semibold">Settlement Terms / Mode</label>
                   <select
                     value={salePaymentMode}
                     onChange={(e) => setSalePaymentMode(e.target.value as any)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 focus:outline-none focus:border-blue-600"
                   >
                     <option value="CREDIT">Customer Credit (30-day)</option>
                     <option value="CASH">Cash Counter Payment</option>
@@ -712,15 +695,15 @@ export const VoucherSessionPage: React.FC = () => {
               </div>
 
               {/* Itemized row */}
-              <div className="pt-2 border-t border-slate-800 space-y-2">
-                <span className="text-[11px] font-bold text-slate-300">Add Items to Sales Bill:</span>
+              <div className="pt-2 border-t border-blue-200 space-y-2">
+                <span className="text-[11px] font-bold text-slate-700">Add Items to Sales Bill:</span>
                 <div className="grid grid-cols-12 gap-2">
                   <input
                     type="text"
                     placeholder="Product / Service description"
                     value={sItemName}
                     onChange={(e) => setSItemName(e.target.value)}
-                    className="col-span-5 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                    className="col-span-5 bg-white border border-slate-300 rounded px-2.5 py-1 text-slate-900 text-xs"
                   />
                   <input
                     type="number"
@@ -728,7 +711,7 @@ export const VoucherSessionPage: React.FC = () => {
                     placeholder="Qty"
                     value={sItemQty}
                     onChange={(e) => setSItemQty(e.target.value)}
-                    className="col-span-2 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                    className="col-span-2 bg-white border border-slate-300 rounded px-2 py-1 text-slate-900 text-xs font-mono"
                   />
                   <input
                     type="number"
@@ -737,19 +720,19 @@ export const VoucherSessionPage: React.FC = () => {
                     placeholder="Rate"
                     value={sItemRate}
                     onChange={(e) => setSItemRate(e.target.value)}
-                    className="col-span-3 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-white text-xs"
+                    className="col-span-3 bg-white border border-slate-300 rounded px-2 py-1 text-slate-900 text-xs font-mono"
                   />
                   <button
                     type="button"
                     onClick={handleAddSaleItem}
-                    className="col-span-2 bg-blue-500 hover:bg-blue-400 text-white font-bold rounded text-xs"
+                    className="col-span-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded text-xs"
                   >
                     + Add Item
                   </button>
                 </div>
 
                 {saleItems.length > 0 && (
-                  <div className="text-xs text-blue-300 pt-1">
+                  <div className="text-xs text-blue-800 font-semibold pt-1 font-mono">
                     {saleItems.length} items added (Total: {amount})
                   </div>
                 )}
@@ -759,13 +742,13 @@ export const VoucherSessionPage: React.FC = () => {
 
           {/* Narration */}
           <div>
-            <label className="block text-slate-300 mb-1 font-semibold">Narration / Voucher Notes</label>
+            <label className="block text-slate-700 mb-1 font-semibold text-xs">Narration / Voucher Notes</label>
             <input
               type="text"
               placeholder="Being..."
               value={narration}
               onChange={(e) => setNarration(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-white"
+              className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white"
             />
           </div>
 
@@ -773,7 +756,7 @@ export const VoucherSessionPage: React.FC = () => {
           <div className="flex justify-end pt-2">
             <button
               type="submit"
-              className="px-6 py-2 bg-amber-400 hover:bg-amber-300 text-black font-bold text-xs rounded shadow-lg transition-transform active:scale-95 flex items-center gap-2"
+              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-md transition-all active:scale-95 flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
               <span>Record & Post to Books</span>
@@ -783,46 +766,46 @@ export const VoucherSessionPage: React.FC = () => {
       </div>
 
       {/* Recent Session Transactions Table */}
-      <div className="border border-slate-800 rounded-lg overflow-x-auto shadow-xl bg-slate-950/60 p-4 space-y-3">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-          <span className="font-bold text-white uppercase text-xs">Recent Entries Posted in Session</span>
-          <span className="text-[11px] text-slate-400">Total Vouchers: {vouchers.length}</span>
+      <div className="border border-slate-200 rounded-xl overflow-x-auto shadow-xs bg-white p-5 space-y-3">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <span className="font-bold text-slate-900 uppercase text-xs">Recent Entries Posted in Session</span>
+          <span className="text-[11px] text-slate-500 font-mono">Total Vouchers: {vouchers.length}</span>
         </div>
 
-        <table className="w-full text-left text-xs">
+        <table className="w-full text-left text-xs font-mono">
           <thead>
-            <tr className="bg-slate-900 text-slate-400 text-[11px]">
-              <th className="py-2 px-3">Date</th>
-              <th className="py-2 px-3">Vch No.</th>
-              <th className="py-2 px-3">Type</th>
-              <th className="py-2 px-3">Debit Ledger (Dr)</th>
-              <th className="py-2 px-3">Credit Ledger (Cr)</th>
-              <th className="py-2 px-3 text-right">Amount</th>
-              <th className="py-2 px-2 text-center">Action</th>
+            <tr className="bg-slate-50 text-slate-600 text-[11px] font-sans">
+              <th className="py-2.5 px-3">Date</th>
+              <th className="py-2.5 px-3">Vch No.</th>
+              <th className="py-2.5 px-3">Type</th>
+              <th className="py-2.5 px-3">Debit Ledger (Dr)</th>
+              <th className="py-2.5 px-3">Credit Ledger (Cr)</th>
+              <th className="py-2.5 px-3 text-right">Amount</th>
+              <th className="py-2.5 px-2 text-center">Action</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800">
+          <tbody className="divide-y divide-slate-100">
             {recentVouchers.map((v) => {
               const dr = ledgers.find((l) => l.id === v.debitLedgerId)?.name || 'Dr Acc';
               const cr = ledgers.find((l) => l.id === v.creditLedgerId)?.name || 'Cr Acc';
               return (
-                <tr key={v.id} className="hover:bg-slate-900/50">
-                  <td className="py-2 px-3 text-slate-300">{v.date}</td>
-                  <td className="py-2 px-3 font-bold text-amber-300">{v.voucherNo}</td>
-                  <td className="py-2 px-3">
-                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-200">
+                <tr key={v.id} className="hover:bg-blue-50/30">
+                  <td className="py-2.5 px-3 text-slate-600 font-sans">{v.date}</td>
+                  <td className="py-2.5 px-3 font-bold text-blue-900">{v.voucherNo}</td>
+                  <td className="py-2.5 px-3 font-sans">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-700 font-bold">
                       {v.voucherType}
                     </span>
                   </td>
-                  <td className="py-2 px-3 text-emerald-400 font-semibold">{dr}</td>
-                  <td className="py-2 px-3 text-rose-400 font-semibold">{cr}</td>
-                  <td className="py-2 px-3 text-right font-bold text-white">
+                  <td className="py-2.5 px-3 text-emerald-700 font-semibold font-sans">{dr}</td>
+                  <td className="py-2.5 px-3 text-rose-700 font-semibold font-sans">{cr}</td>
+                  <td className="py-2.5 px-3 text-right font-bold text-slate-900">
                     {company.currencySymbol} {v.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="py-2 px-2 text-center">
+                  <td className="py-2.5 px-2 text-center font-sans">
                     <button
                       onClick={() => deleteVoucher(v.id)}
-                      className="text-slate-500 hover:text-rose-400 p-1"
+                      className="text-slate-400 hover:text-rose-600 p-1"
                       title="Delete Entry"
                     >
                       <Trash2 className="w-3.5 h-3.5 mx-auto" />

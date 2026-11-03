@@ -15,7 +15,7 @@ import { SavingsPage } from './pages/SavingsPage';
 import { VoucherSessionPage } from './pages/VoucherSessionPage';
 import { LedgersPage } from './pages/LedgersPage';
 import { TrialBalancePage } from './pages/TrialBalancePage';
-import { VoucherType } from './types/accounting';
+import type { VoucherType } from './types/accounting';
 
 const AppLayout: React.FC = () => {
   const { company } = useAccounting();
@@ -35,17 +35,17 @@ const AppLayout: React.FC = () => {
 
   return (
     <div
-      className={`min-h-screen flex flex-col font-mono selection:bg-amber-400 selection:text-black transition-colors duration-200 ${
-        isClassic ? 'bg-[#001717] text-[#d6ded1]' : 'bg-[#041624] text-slate-100'
+      className={`min-h-screen flex flex-col font-sans selection:bg-blue-600 selection:text-white transition-colors duration-200 ${
+        isClassic ? 'bg-[#001717] text-[#d6ded1]' : 'bg-slate-100 text-slate-800'
       }`}
     >
-      {/* Top Tally Header */}
+      {/* Top Tally Header in White & Blue */}
       <TallyHeader onOpenVoucherModal={handleOpenVoucherModal} />
 
       {/* Main Workspace with Right-Hand Shortcut Function Bar */}
       <div className="flex-1 flex overflow-hidden">
         {/* Main Routed Page Content */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto bg-slate-50">
           <Routes>
             <Route path="/" element={<GatewayPage onOpenVoucher={handleOpenVoucherModal} />} />
             <Route path="/cash" element={<CashBookPage onOpenVoucher={handleOpenVoucherModal} />} />
@@ -62,7 +62,7 @@ const AppLayout: React.FC = () => {
           </Routes>
         </main>
 
-        {/* Iconic Tally Function Keys Bar on Right */}
+        {/* Tally Function Keys Bar on Right */}
         <TallySidebar onOpenVoucher={handleOpenVoucherModal} />
       </div>
 
@@ -75,29 +75,29 @@ const AppLayout: React.FC = () => {
         onClose={() => setIsVoucherModalOpen(false)}
       />
 
-      {/* Bottom Status Ticker */}
+      {/* Bottom Status Bar in White & Blue */}
       <footer
-        className={`px-3 py-1 text-[11px] border-t flex flex-wrap items-center justify-between select-none ${
+        className={`px-4 py-1.5 text-xs border-t flex flex-wrap items-center justify-between select-none ${
           isClassic
             ? 'bg-[#001111] border-[#0c4e4e] text-slate-400'
-            : 'bg-[#02101b] border-[#0a3556] text-slate-400'
+            : 'bg-white border-slate-200 text-slate-600 shadow-sm'
         }`}
       >
         <div className="flex items-center gap-3">
-          <span className="font-bold text-amber-300">TallyEdu v9.2</span>
-          <span>|</span>
-          <span className="text-slate-300">
-            Company: <strong className="text-white">{company.companyName}</strong>
+          <span className="font-bold text-blue-700 font-mono">TallyEdu White & Blue</span>
+          <span className="text-slate-300">|</span>
+          <span className="text-slate-700">
+            Company: <strong className="text-blue-900 font-semibold">{company.companyName}</strong>
           </span>
-          <span>|</span>
-          <span>Double-Entry Arithmetic Engine</span>
+          <span className="text-slate-300">|</span>
+          <span className="text-emerald-700 font-medium">● Double-Entry Active</span>
         </div>
 
-        <div className="flex items-center gap-4 text-[10px]">
-          <span>Alt+S: Savings</span>
-          <span>Alt+P: P&L</span>
-          <span>Alt+B: Balance Sheet</span>
-          <span>Esc: Back</span>
+        <div className="flex items-center gap-4 text-[11px] font-mono text-slate-500">
+          <span className="hover:text-blue-600">Alt+S: Savings</span>
+          <span className="hover:text-blue-600">Alt+P: P&L</span>
+          <span className="hover:text-blue-600">Alt+B: Balance Sheet</span>
+          <span className="hover:text-blue-600">Esc: Back</span>
         </div>
       </footer>
     </div>

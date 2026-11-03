@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAccounting } from '../context/AccountingContext';
-import { VoucherType, InvoiceItem } from '../types/accounting';
+import type { VoucherType, InvoiceItem } from '../types/accounting';
 import { Plus, Trash2, CheckCircle2, AlertCircle, FileText } from 'lucide-react';
 
 interface VoucherEntryModalProps {
@@ -41,7 +41,6 @@ export const VoucherEntryModal: React.FC<VoucherEntryModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Sync initial type when opened
   useEffect(() => {
     if (isOpen) {
       setVoucherType(initialType);
@@ -105,7 +104,6 @@ export const VoucherEntryModal: React.FC<VoucherEntryModalProps> = ({
     setDefaultAccountsForType(type);
   };
 
-  // Add item to invoice table
   const handleAddItem = () => {
     if (!newItemName.trim() || !newItemRate || Number(newItemRate) <= 0) {
       return;
@@ -126,7 +124,6 @@ export const VoucherEntryModal: React.FC<VoucherEntryModalProps> = ({
     const updatedItems = [...items, item];
     setItems(updatedItems);
 
-    // Auto-calculate total amount from items
     const totalFromItems = updatedItems.reduce((sum, it) => sum + it.amount, 0);
     setAmount(totalFromItems.toString());
 
@@ -169,7 +166,6 @@ export const VoucherEntryModal: React.FC<VoucherEntryModalProps> = ({
       return;
     }
 
-    // Determine category
     let category: 'CASH' | 'BANK' | 'PURCHASE' | 'SALE' | 'GENERAL' = 'GENERAL';
     const drLedger = ledgers.find(l => l.id === debitLedgerId);
     const crLedger = ledgers.find(l => l.id === creditLedgerId);
@@ -202,12 +198,11 @@ export const VoucherEntryModal: React.FC<VoucherEntryModalProps> = ({
     setSuccessMsg(`Voucher recorded successfully into ${category} register!`);
     setTimeout(() => {
       onClose();
-      // Reset form
       setAmount('');
       setItems([]);
       setReferenceNo('');
       setChequeOrUtrNo('');
-    }, 900);
+    }, 800);
   };
 
   if (!isOpen) return null;
@@ -217,25 +212,29 @@ export const VoucherEntryModal: React.FC<VoucherEntryModalProps> = ({
   const creditBal = creditLedgerId ? getLedgerBalance(creditLedgerId) : null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-3 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 overflow-y-auto">
       <div
-        className={`w-full max-w-3xl rounded-lg border shadow-2xl overflow-hidden font-mono text-xs my-6 ${
+        className={`w-full max-w-3xl rounded-xl border shadow-2xl overflow-hidden text-xs my-6 ${
           isClassic
-            ? 'bg-[#002222] border-[#0c5c5c] text-slate-100'
-            : 'bg-[#00223a] border-[#0f5485] text-slate-100'
+            ? 'bg-[#002222] border-[#0c5c5c] text-slate-100 font-mono'
+            : 'bg-white border-slate-200 text-slate-800 font-sans'
         }`}
       >
         {/* Header with Voucher Function Tabs */}
         <div
-          className={`px-4 py-3 border-b flex flex-wrap items-center justify-between gap-2 ${
-            isClassic ? 'bg-[#001717] border-[#0c5c5c]' : 'bg-[#001a2e] border-[#0f5485]'
+          className={`px-5 py-3 border-b flex flex-wrap items-center justify-between gap-2 ${
+            isClassic ? 'bg-[#001717] border-[#0c5c5c]' : 'bg-[#003366] text-white border-blue-900'
           }`}
         >
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded bg-amber-400 text-black font-black text-xs uppercase">
+          <div className="flex items-center gap-2.5">
+            <span className={`px-2.5 py-0.5 rounded font-black text-xs uppercase shadow-sm ${
+              isClassic ? 'bg-amber-400 text-black' : 'bg-white text-blue-900'
+            }`}>
               {voucherType} ENTRY
             </span>
-            <span className="text-slate-400 text-xs">Accounting Voucher Session</span>
+            <span className={isClassic ? 'text-slate-400 text-xs' : 'text-blue-100 text-xs'}>
+              Voucher Session
+            </span>
           </div>
 
           <div className="flex items-center gap-1 overflow-x-auto">
@@ -257,8 +256,8 @@ export const VoucherEntryModal: React.FC<VoucherEntryModalProps> = ({
                     onClick={() => handleTypeChange(type)}
                     className={`px-2.5 py-1 rounded text-[11px] font-bold tracking-tight transition-all ${
                       isSelected
-                        ? 'bg-amber-400 text-black shadow'
-                        : 'bg-white/5 hover:bg-white/10 text-slate-300'
+                        ? isClassic ? 'bg-amber-400 text-black' : 'bg-blue-500 text-white shadow'
+                        : isClassic ? 'bg-white/5 text-slate-300' : 'bg-white/10 hover:bg-white/20 text-blue-100'
                     }`}
                   >
                     {keyLabelMap[type]}
@@ -270,38 +269,38 @@ export const VoucherEntryModal: React.FC<VoucherEntryModalProps> = ({
         </div>
 
         {/* Modal Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {errorMsg && (
-            <div className="p-2.5 bg-rose-950/80 border border-rose-700 text-rose-200 rounded flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-              <span>{errorMsg}</span>
+            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-lg flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+              <span className="font-semibold">{errorMsg}</span>
             </div>
           )}
 
           {successMsg && (
-            <div className="p-2.5 bg-emerald-950/80 border border-emerald-700 text-emerald-200 rounded flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-              <span>{successMsg}</span>
+            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+              <span className="font-semibold">{successMsg}</span>
             </div>
           )}
 
           {/* Date, Reference, Mode Row */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-slate-300 mb-1 font-semibold">
-                Voucher Date (YYYY-MM-DD)
+              <label className="block text-slate-700 mb-1 font-semibold text-xs">
+                Voucher Date
               </label>
               <input
                 type="date"
                 required
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-slate-300 mb-1 font-semibold">
+              <label className="block text-slate-700 mb-1 font-semibold text-xs">
                 Invoice / Reference No.
               </label>
               <input
@@ -309,18 +308,18 @@ export const VoucherEntryModal: React.FC<VoucherEntryModalProps> = ({
                 placeholder={voucherType === 'SALES' ? 'INV-001' : voucherType === 'PURCHASE' ? 'BILL-901' : 'REF-123'}
                 value={referenceNo}
                 onChange={(e) => setReferenceNo(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white transition-colors"
               />
             </div>
 
             <div>
-              <label className="block text-slate-300 mb-1 font-semibold">
+              <label className="block text-slate-700 mb-1 font-semibold text-xs">
                 Settlement Mode
               </label>
               <select
                 value={paymentMode}
                 onChange={(e) => setPaymentMode(e.target.value as any)}
-                className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white transition-colors"
               >
                 <option value="BANK">Bank / Online / Cheque</option>
                 <option value="CASH">Cash in Hand</option>
@@ -329,25 +328,25 @@ export const VoucherEntryModal: React.FC<VoucherEntryModalProps> = ({
             </div>
           </div>
 
-          {/* Double Entry Ledgers Selection */}
-          <div className="p-3.5 bg-black/30 border border-white/10 rounded-lg space-y-3">
-            <div className="text-[11px] font-bold text-amber-300 uppercase tracking-wider">
+          {/* Double Entry Particulars Box */}
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+            <div className="text-[11px] font-bold text-blue-900 uppercase tracking-wider">
               Double-Entry Accounting Particulars
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Debit Side (Dr) */}
-              <div className="p-3 bg-slate-900/90 rounded border border-slate-700">
+              <div className="p-3.5 bg-emerald-50/50 rounded-lg border border-emerald-200">
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="font-bold text-emerald-400 flex items-center gap-1">
-                    <span className="px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px]">
+                  <label className="font-bold text-emerald-800 flex items-center gap-1.5">
+                    <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white font-bold text-[10px]">
                       By / Dr
                     </span>
                     <span>Debit Account</span>
                   </label>
                   {debitBal && (
-                    <span className="text-[11px] text-slate-400 font-mono">
-                      Current: <strong className="text-slate-200">{debitBal.formatted}</strong>
+                    <span className="text-[11px] text-emerald-800 font-mono">
+                      Current: <strong>{debitBal.formatted}</strong>
                     </span>
                   )}
                 </div>
@@ -356,7 +355,7 @@ export const VoucherEntryModal: React.FC<VoucherEntryModalProps> = ({
                   required
                   value={debitLedgerId}
                   onChange={(e) => setDebitLedgerId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-600 rounded px-2.5 py-1.5 text-xs text-amber-300 font-bold focus:outline-none focus:border-amber-400"
+                  className="w-full bg-white border border-emerald-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 font-semibold focus:outline-none focus:border-emerald-600 shadow-xs"
                 >
                   <option value="">-- Select Debit Ledger --</option>
                   {ledgers.map((l) => (
@@ -368,17 +367,17 @@ export const VoucherEntryModal: React.FC<VoucherEntryModalProps> = ({
               </div>
 
               {/* Credit Side (Cr) */}
-              <div className="p-3 bg-slate-900/90 rounded border border-slate-700">
+              <div className="p-3.5 bg-rose-50/50 rounded-lg border border-rose-200">
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="font-bold text-rose-400 flex items-center gap-1">
-                    <span className="px-1.5 py-0.2 rounded bg-rose-950 text-rose-300 border border-rose-800 text-[10px]">
+                  <label className="font-bold text-rose-800 flex items-center gap-1.5">
+                    <span className="px-1.5 py-0.5 rounded bg-rose-600 text-white font-bold text-[10px]">
                       To / Cr
                     </span>
                     <span>Credit Account</span>
                   </label>
                   {creditBal && (
-                    <span className="text-[11px] text-slate-400 font-mono">
-                      Current: <strong className="text-slate-200">{creditBal.formatted}</strong>
+                    <span className="text-[11px] text-rose-800 font-mono">
+                      Current: <strong>{creditBal.formatted}</strong>
                     </span>
                   )}
                 </div>
@@ -387,7 +386,7 @@ export const VoucherEntryModal: React.FC<VoucherEntryModalProps> = ({
                   required
                   value={creditLedgerId}
                   onChange={(e) => setCreditLedgerId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-600 rounded px-2.5 py-1.5 text-xs text-amber-300 font-bold focus:outline-none focus:border-amber-400"
+                  className="w-full bg-white border border-rose-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 font-semibold focus:outline-none focus:border-rose-600 shadow-xs"
                 >
                   <option value="">-- Select Credit Ledger --</option>
                   {ledgers.map((l) => (
@@ -400,57 +399,56 @@ export const VoucherEntryModal: React.FC<VoucherEntryModalProps> = ({
             </div>
           </div>
 
-          {/* Bank Specific Details */}
+          {/* Bank details */}
           {paymentMode === 'BANK' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-sky-950/30 border border-sky-800/60 rounded">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-blue-50/60 border border-blue-200 rounded-lg">
               <div>
-                <label className="block text-sky-200 mb-1 font-semibold text-[11px]">
-                  Bank Name / Instrument
+                <label className="block text-blue-900 mb-1 font-semibold text-xs">
+                  Bank Name / Account
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. HDFC Bank A/c / SBI"
+                  placeholder="e.g. HDFC Current A/c"
                   value={bankName}
                   onChange={(e) => setBankName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-xs text-white"
+                  className="w-full bg-white border border-blue-200 rounded px-2.5 py-1 text-xs text-slate-900 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-sky-200 mb-1 font-semibold text-[11px]">
-                  Cheque / NEFT / UTR Reference No.
+                <label className="block text-blue-900 mb-1 font-semibold text-xs">
+                  Cheque / NEFT / UTR No.
                 </label>
                 <input
                   type="text"
                   placeholder="e.g. UTR88291040"
                   value={chequeOrUtrNo}
                   onChange={(e) => setChequeOrUtrNo(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1 text-xs text-white"
+                  className="w-full bg-white border border-blue-200 rounded px-2.5 py-1 text-xs text-slate-900 focus:outline-none"
                 />
               </div>
             </div>
           )}
 
-          {/* Itemized Table (for Purchase & Sales) */}
+          {/* Itemized Table (Purchase/Sales) */}
           {(voucherType === 'SALES' || voucherType === 'PURCHASE') && (
-            <div className="border border-slate-700 rounded-lg p-3 bg-slate-950/60 space-y-2">
-              <div className="flex items-center justify-between text-xs font-bold text-slate-300">
-                <span className="flex items-center gap-1.5 text-amber-300">
-                  <FileText className="w-3.5 h-3.5" />
-                  Itemized Stock / Invoice Breakdown (Optional)
+            <div className="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-3">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                <span className="flex items-center gap-1.5 text-blue-800">
+                  <FileText className="w-4 h-4 text-blue-600" />
+                  Itemized Stock Breakdown
                 </span>
-                <span className="text-[11px] text-slate-400 font-normal">
+                <span className="text-[11px] text-slate-500 font-normal">
                   Items auto-sum into voucher amount
                 </span>
               </div>
 
-              {/* Add item inputs */}
               <div className="grid grid-cols-12 gap-2 pt-1">
                 <input
                   type="text"
                   placeholder="Item Name / Description"
                   value={newItemName}
                   onChange={(e) => setNewItemName(e.target.value)}
-                  className="col-span-5 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white"
+                  className="col-span-5 bg-white border border-slate-300 rounded px-2.5 py-1 text-xs text-slate-900"
                 />
                 <input
                   type="number"
@@ -458,7 +456,7 @@ export const VoucherEntryModal: React.FC<VoucherEntryModalProps> = ({
                   min="1"
                   value={newItemQty}
                   onChange={(e) => setNewItemQty(e.target.value)}
-                  className="col-span-2 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white"
+                  className="col-span-2 bg-white border border-slate-300 rounded px-2 py-1 text-xs text-slate-900"
                 />
                 <input
                   type="number"
@@ -467,47 +465,46 @@ export const VoucherEntryModal: React.FC<VoucherEntryModalProps> = ({
                   step="0.01"
                   value={newItemRate}
                   onChange={(e) => setNewItemRate(e.target.value)}
-                  className="col-span-3 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white"
+                  className="col-span-3 bg-white border border-slate-300 rounded px-2.5 py-1 text-xs text-slate-900"
                 />
                 <button
                   type="button"
                   onClick={handleAddItem}
-                  className="col-span-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded flex items-center justify-center gap-1 text-xs"
+                  className="col-span-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded flex items-center justify-center gap-1 text-xs"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add</span>
                 </button>
               </div>
 
-              {/* Items List */}
               {items.length > 0 && (
-                <div className="mt-2 border border-slate-800 rounded overflow-hidden">
+                <div className="mt-2 border border-slate-200 rounded-lg overflow-hidden bg-white">
                   <table className="w-full text-left text-[11px]">
-                    <thead className="bg-slate-900 text-slate-400">
+                    <thead className="bg-slate-100 text-slate-600">
                       <tr>
-                        <th className="py-1 px-2">Item</th>
-                        <th className="py-1 px-2 text-right">Qty</th>
-                        <th className="py-1 px-2 text-right">Rate</th>
-                        <th className="py-1 px-2 text-right">Amount</th>
-                        <th className="py-1 px-2 text-center w-8">Action</th>
+                        <th className="py-1.5 px-3">Item</th>
+                        <th className="py-1.5 px-3 text-right">Qty</th>
+                        <th className="py-1.5 px-3 text-right">Rate</th>
+                        <th className="py-1.5 px-3 text-right">Amount</th>
+                        <th className="py-1.5 px-3 text-center w-8">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800">
+                    <tbody className="divide-y divide-slate-100">
                       {items.map((it) => (
-                        <tr key={it.id} className="hover:bg-slate-900/40">
-                          <td className="py-1 px-2 text-slate-200">{it.itemName}</td>
-                          <td className="py-1 px-2 text-right">{it.quantity}</td>
-                          <td className="py-1 px-2 text-right">{it.rate.toFixed(2)}</td>
-                          <td className="py-1 px-2 text-right font-bold text-amber-300">
+                        <tr key={it.id}>
+                          <td className="py-1.5 px-3 text-slate-800 font-medium">{it.itemName}</td>
+                          <td className="py-1.5 px-3 text-right text-slate-600">{it.quantity}</td>
+                          <td className="py-1.5 px-3 text-right text-slate-600">{it.rate.toFixed(2)}</td>
+                          <td className="py-1.5 px-3 text-right font-bold text-blue-700">
                             {it.amount.toFixed(2)}
                           </td>
-                          <td className="py-1 px-2 text-center">
+                          <td className="py-1.5 px-3 text-center">
                             <button
                               type="button"
                               onClick={() => handleRemoveItem(it.id)}
-                              className="text-rose-400 hover:text-rose-300"
+                              className="text-rose-500 hover:text-rose-700"
                             >
-                              <Trash2 className="w-3 h-3 mx-auto" />
+                              <Trash2 className="w-3.5 h-3.5 mx-auto" />
                             </button>
                           </td>
                         </tr>
@@ -519,10 +516,10 @@ export const VoucherEntryModal: React.FC<VoucherEntryModalProps> = ({
             </div>
           )}
 
-          {/* Amount and Narration */}
+          {/* Amount & Narration */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
             <div>
-              <label className="block text-slate-300 mb-1 font-bold text-amber-400">
+              <label className="block text-slate-800 mb-1 font-bold text-blue-900">
                 Total Amount ({company.currencySymbol})
               </label>
               <input
@@ -533,12 +530,12 @@ export const VoucherEntryModal: React.FC<VoucherEntryModalProps> = ({
                 placeholder="0.00"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full bg-slate-950 border-2 border-amber-400 rounded px-3 py-1.5 text-base font-bold text-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                className="w-full bg-white border-2 border-blue-600 rounded-lg px-3 py-1.5 text-base font-bold text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-400 font-mono"
               />
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-slate-300 mb-1 font-semibold">
+              <label className="block text-slate-700 mb-1 font-semibold text-xs">
                 Narration / Remarks
               </label>
               <input
@@ -546,29 +543,29 @@ export const VoucherEntryModal: React.FC<VoucherEntryModalProps> = ({
                 placeholder="Being..."
                 value={narration}
                 onChange={(e) => setNarration(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:bg-white"
               />
             </div>
           </div>
 
           {/* Footer Actions */}
-          <div className="flex items-center justify-between border-t border-white/10 pt-4 mt-2">
-            <span className="text-[11px] text-slate-400">
-              Shortcut: Press <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-amber-300">Esc</kbd> to cancel
+          <div className="flex items-center justify-between border-t border-slate-200 pt-4 mt-2">
+            <span className="text-[11px] text-slate-500">
+              Shortcut: Press <kbd className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 font-mono">Esc</kbd> to cancel
             </span>
 
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs"
+                className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors"
               >
                 Cancel (Esc)
               </button>
 
               <button
                 type="submit"
-                className="px-5 py-1.5 rounded bg-amber-400 hover:bg-amber-300 text-black font-bold text-xs shadow-lg transition-transform active:scale-95"
+                className="px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition-all active:scale-95"
               >
                 Accept & Save Voucher
               </button>

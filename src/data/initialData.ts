@@ -9,7 +9,7 @@ export const DEFAULT_COMPANY: CompanySettings = {
   financialYearEnd: '2027-03-31',
   currentAccountingDate: '2026-11-03',
   isEducationalMode: true,
-  theme: 'prime', // Modern Tally Prime feel by default, with instant toggle to Classic Tally ERP 9
+  theme: 'white-blue', // Modern White & Blue theme by default
 };
 
 export const DEFAULT_SAVINGS_CONFIG: SavingsConfig = {
@@ -256,3 +256,4 @@ export const DEFAULT_VOUCHERS: VoucherEntry[] = [
     category: 'CASH'
   }
 ];
+
