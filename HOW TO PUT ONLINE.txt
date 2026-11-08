@@ -35,8 +35,7 @@ The link only works while that computer is on and start-online.bat is running.
    - Double-click  start-online.bat
    - It shows the link, for example  https://apex-books.ngrok-free.app
    - Send that link to whoever needs it. They sign in with:
-        User name: vinitha
-        Password:  password123
+        the user name and password set in .env (BOOKS_USER and BOOKS_PASSWORD)
    - The first time someone opens the link, ngrok shows a short
      "You are about to visit..." page. Click "Visit Site". That is normal on the free plan.
 
@@ -47,7 +46,7 @@ EVERY DAY
 
 CHANGING THE LOGIN
 - Edit BOOKS_USER and BOOKS_PASSWORD in .env, save, then close and restart start-online.bat.
-- Please choose a stronger password than password123 before sharing the link widely:
+- Please choose a strong password before sharing the link widely:
   anyone on the internet can reach the login page.
 
 KEEP A BACKUP
