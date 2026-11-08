@@ -4,8 +4,27 @@
     {
       "name": "accounting-dev",
       "runtimeExecutable": "npm.cmd",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 5173
+    },
+    {
+      "name": "accounting-test",
+      "runtimeExecutable": "npm.cmd",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5199",
+        "--strictPort"
+      ],
+      "port": 5199,
+      "env": {
+        "BOOKS_DATA_DIR": "C:\\Users\\ASUSTU~1\\AppData\\Local\\Temp\\claude\\8961b35f5a482062\\d87310a4-646a-4290-ad37-adf5bd6e759e\\scratchpad\\test-data"
+      }
     }
   ]
 }

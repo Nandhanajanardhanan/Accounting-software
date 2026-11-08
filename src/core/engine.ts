@@ -1,9 +1,9 @@
 // The accounting engine: pure functions from a company file to balances and reports.
 // Amounts are signed with debit positive and credit negative unless a name says otherwise.
 import type {
-  CompanyData, Group, Ledger, Nature, Scenario, StockItem, Voucher, VoucherBase, VoucherLine,
+  CompanyData, CostCentre, Group, Ledger, Nature, PayrollRow, Scenario, StockItem, VatRow, Voucher, VoucherBase, VoucherLine,
 } from './types.ts';
-import { G, PNL_LEDGER_ID, VOUCHER_META } from './defaults.ts';
+import { EMIRATES, G, PNL_LEDGER_ID, VAT_EXEMPT, VOUCHER_META } from './defaults.ts';
 
 export const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 export const isZero = (n: number) => Math.abs(n) < 0.005;
@@ -420,10 +420,9 @@ export function pnl(data: CompanyData, from: string, to: string, o?: BookOptions
     };
     const primaries = childGroups(data, null);
     const nodes = (nature: Nature, gross: boolean, sign: number) =>
-      primaries.filter(g => g.nature === nature && !!g.grossProfit === gross).map(g => {
-        const n = groupNode(data, g, l => sign * amountOf(l));
-        return n;
-      }).filter(n => n.children.length);
+      primaries.filter(g => g.nature === nature && !!g.grossProfit === gross)
+        .map(g => groupNode(data, g, l => sign * amountOf(l)))
+        .filter(n => n.children.length);
 
     const tradingExpenses = nodes('EXPENSE', true, 1);
     const tradingIncomes = nodes('INCOME', true, -1);
@@ -461,7 +460,7 @@ export function pnl(data: CompanyData, from: string, to: string, o?: BookOptions
 /** Opening-balance gap: all ledger openings plus item opening stock. Zero when the books start balanced. */
 export function openingDifference(data: CompanyData): number {
   const ledgers = data.ledgers.reduce((s, l) => s + l.openingBalance, 0);
-  const items = data.stockItems.reduce((s, it) => s + it.openingQty * it.openingRate, 0);
+  const items = data.stockItems.reduce((s, it) => s + round2(it.openingQty * it.openingRate), 0);
   return round2(ledgers + items);
 }
 
@@ -491,21 +490,16 @@ export function balanceSheet(data: CompanyData, asOf: string, o?: BookOptions): 
       .map(g => groupNode(data, g, l => -amountOf(l)))
       .filter(n => n.children.length);
     const closingStock = stockValueAt(data, asOf);
-    const assets = primaries.filter(g => g.nature === 'ASSET')
-      .map(g => groupNode(data, g, l => (isStock(l) ? 0 : amountOf(l))))
-      .filter(n => n.children.length || g_isCurrentAssets(n.id));
+    const allAssets = primaries.filter(g => g.nature === 'ASSET')
+      .map(g => groupNode(data, g, l => (isStock(l) ? 0 : amountOf(l))));
 
     // Stock appears once, at its valued closing figure, however it is tracked.
-    const stockNode: Node = { id: 'closing_stock', name: 'Closing Stock', kind: 'special', amount: closingStock, children: [] };
-    let currentAssets = assets.find(n => n.id === G.currentAssets);
-    if (!currentAssets && !isZero(closingStock)) {
-      currentAssets = groupNode(data, groupOf(data, G.currentAssets)!, () => 0);
-      assets.push(currentAssets);
-    }
-    if (currentAssets) {
-      currentAssets.children.unshift(stockNode);
+    const currentAssets = allAssets.find(n => n.id === G.currentAssets);
+    if (currentAssets && !isZero(closingStock)) {
+      currentAssets.children.unshift({ id: 'closing_stock', name: 'Closing Stock', kind: 'special', amount: closingStock, children: [] });
       currentAssets.amount += closingStock;
     }
+    const assets = allAssets.filter(n => n.children.length);
 
     const profitCurrent = pnl(data, start, asOf, o).netProfit;
     const profitBrought = start > booksFrom ? pnl(data, booksFrom, dayBefore(start), o).netProfit : 0;
@@ -534,8 +528,6 @@ export function balanceSheet(data: CompanyData, asOf: string, o?: BookOptions): 
   });
 }
 
-function g_isCurrentAssets(id: string) { return id === G.currentAssets; }
-
 export interface TrialBalance {
   from: string; to: string;
   /** Rows carry the closing balance signed Dr positive. */
@@ -550,11 +542,10 @@ export function trialBalance(data: CompanyData, from: string, to: string, o?: Bo
     const balances = ledgerBalances(data, from, to, o);
     const fy = fyStartOf(data, from);
     const yearStart = fy < data.company.booksFrom ? data.company.booksFrom : fy;
+    const yearMoves = movements(data, yearStart, to, o);
     const closing = (l: Ledger) => {
-      if (isStockLedger(data, l)) {
-        // Only movements on a stock ledger appear here; its opening is inside Opening Stock.
-        return balances.get(l.id)!.closing - l.openingBalance;
-      }
+      // Only this year's movements on a stock ledger appear here; its value is inside Opening Stock.
+      if (isStockLedger(data, l)) return netOf(yearMoves.get(l.id));
       return l.id === PNL_LEDGER_ID ? 0 : balances.get(l.id)!.closing;
     };
     const groups = childGroups(data, null).map(g => groupNode(data, g, closing)).filter(n => n.children.length);
@@ -707,10 +698,17 @@ export function billsOf(data: CompanyData, asOf: string, excludeVoucherId?: stri
   const bills = new Map<string, Bill>();
   const keyOf = (ledgerId: string, ref: string) => `${ledgerId}|${ref}`;
   for (const l of data.ledgers) {
+    if (!l.billWise) continue;
     for (const b of l.openingBills ?? []) {
       bills.set(keyOf(l.id, b.ref), {
         ledgerId: l.id, ref: b.ref, date: b.date, dueDate: b.dueDate ?? b.date, amount: b.amount, pending: b.amount,
       });
+    }
+    // Whatever the listed bills do not explain is still owed, so it stays visible as one line.
+    const unlisted = round2(l.openingBalance - (l.openingBills ?? []).reduce((s, b) => s + b.amount, 0));
+    if (!isZero(unlisted)) {
+      const from = data.company.booksFrom;
+      bills.set(keyOf(l.id, 'Opening Balance'), { ledgerId: l.id, ref: 'Opening Balance', date: from, dueDate: from, amount: unlisted, pending: unlisted });
     }
   }
   for (const p of postings(data)) {
@@ -727,10 +725,16 @@ export function billsOf(data: CompanyData, asOf: string, excludeVoucherId?: stri
         if (b) b.pending += value;
         else bills.set(keyOf(line.ledgerId, a.ref), { ledgerId: line.ledgerId, ref: a.ref, date: v.date, dueDate: v.date, amount: value, pending: value, voucherId: v.id });
       } else if (a.type === 'ON_ACCOUNT') {
-        const ref = `On Account ${v.number}`;
-        bills.set(keyOf(line.ledgerId, `${ref}|${a.amount}|${bills.size}`), {
-          ledgerId: line.ledgerId, ref, date: v.date, dueDate: v.date, amount: value, pending: value, isOnAccount: true, voucherId: v.id,
-        });
+        // On-account amounts net off per party, so a part payment is not read as money owed the other way.
+        const existing = bills.get(keyOf(line.ledgerId, 'On Account'));
+        if (existing) {
+          existing.amount += value;
+          existing.pending += value;
+          existing.date = v.date;
+          existing.dueDate = v.date;
+        } else {
+          bills.set(keyOf(line.ledgerId, 'On Account'), { ledgerId: line.ledgerId, ref: 'On Account', date: v.date, dueDate: v.date, amount: value, pending: value, isOnAccount: true });
+        }
       } else {
         const existing = bills.get(keyOf(line.ledgerId, a.ref));
         if (existing) { existing.amount += value; existing.pending += value; }
@@ -1027,65 +1031,83 @@ export function bankRegister(data: CompanyData, bankLedgerId: string, asOf: stri
   return { rows, bookBalance: round2(bookBalance), uncleared, notInBank: round2(notInBank), bankBalance: round2(bookBalance - notInBank) };
 }
 
-// ---------------------------------------------------------------- GST
+// ---------------------------------------------------------------- UAE VAT
 
-const gstTypes: VoucherBase[] = ['SALES', 'CREDIT_NOTE', 'PURCHASE', 'DEBIT_NOTE'];
+const vatTypes: VoucherBase[] = ['SALES', 'CREDIT_NOTE', 'PURCHASE', 'DEBIT_NOTE'];
 
-export interface GstDoc {
+export interface VatDoc {
   voucher: Voucher;
   party: Ledger | undefined;
+  /** Emirate of supply, or 'Outside UAE'. */
+  place: string | undefined;
   invoiceValue: number;
-  taxable: number; cgst: number; sgst: number; igst: number;
+  /** Standard-rated (5%) value. */
+  standard: number;
+  zeroRated: number;
+  exempt: number;
+  vat: number;
+  reverseCharge: boolean;
 }
 
-export function gstDocuments(data: CompanyData, types: VoucherBase[], from: string, to: string): GstDoc[] {
-  const out: GstDoc[] = [];
+/** Every invoice, bill and note with VAT in the period. Credit and debit notes keep positive figures. */
+export function vatDocuments(data: CompanyData, types: VoucherBase[], from: string, to: string): VatDoc[] {
+  const out: VatDoc[] = [];
   for (const v of data.vouchers) {
-    if (!types.includes(v.type) || !gstTypes.includes(v.type) || !voucherInBooks(data, v) || v.date < from || v.date > to || !v.gst?.length) continue;
-    const sum = (k: 'taxable' | 'cgst' | 'sgst' | 'igst') => round2(v.gst!.reduce((s, r) => s + r[k], 0));
+    if (!types.includes(v.type) || !vatTypes.includes(v.type) || !voucherInBooks(data, v) || v.date < from || v.date > to || !v.vat?.length) continue;
+    const rows = v.vat;
+    const sum = (pick: (r: VatRow) => boolean, k: 'taxable' | 'vat') => round2(rows.filter(pick).reduce((s, r) => s + r[k], 0));
     const party = v.partyId ? ledgerOf(data, v.partyId) : undefined;
     out.push({
-      voucher: v, party, invoiceValue: voucherAmount(v),
-      taxable: sum('taxable'), cgst: sum('cgst'), sgst: sum('sgst'), igst: sum('igst'),
+      voucher: v, party, place: v.placeOfSupply || party?.state || data.company.state, invoiceValue: voucherAmount(v),
+      standard: sum(r => r.rate > 0, 'taxable'), zeroRated: sum(r => r.rate === 0, 'taxable'), exempt: sum(r => r.rate === VAT_EXEMPT, 'taxable'),
+      vat: sum(() => true, 'vat'), reverseCharge: rows.some(r => r.reverseCharge),
     });
   }
   return out.sort((a, b) => (a.voucher.date < b.voucher.date ? -1 : 1));
 }
 
-export function gstr1(data: CompanyData, from: string, to: string) {
-  const sales = gstDocuments(data, ['SALES'], from, to);
-  const notes = gstDocuments(data, ['CREDIT_NOTE'], from, to);
-  // Inter-state consumer invoices above this value are reported invoice by invoice.
-  const b2clLimit = 100000;
-  const isB2B = (d: GstDoc) => !!d.party?.gstin;
-  const b2b = sales.filter(isB2B);
-  const b2cl = sales.filter(d => !isB2B(d) && d.igst > 0 && d.invoiceValue > b2clLimit);
-  const b2cs = sales.filter(d => !isB2B(d) && !(d.igst > 0 && d.invoiceValue > b2clLimit));
-  const hsn = new Map<string, { hsn: string; rate: number; taxable: number; cgst: number; sgst: number; igst: number }>();
-  const addHsn = (list: GstDoc[], sign: number) => {
-    for (const d of list) for (const r of d.voucher.gst ?? []) {
-      const key = `${r.hsn ?? ''}|${r.rate}`;
-      if (!hsn.has(key)) hsn.set(key, { hsn: r.hsn ?? '', rate: r.rate, taxable: 0, cgst: 0, sgst: 0, igst: 0 });
-      const row = hsn.get(key)!;
-      row.taxable += sign * r.taxable; row.cgst += sign * r.cgst; row.sgst += sign * r.sgst; row.igst += sign * r.igst;
-    }
-  };
-  addHsn(sales, 1);
-  addHsn(notes, -1);
-  return { b2b, b2cl, b2cs, notes, hsn: [...hsn.values()] };
-}
+export interface VatBox { box: string; label: string; amount: number; vat: number }
 
-export function gstr3b(data: CompanyData, from: string, to: string) {
-  const total = (list: GstDoc[]) => list.reduce((s, d) => ({
-    taxable: s.taxable + d.taxable, cgst: s.cgst + d.cgst, sgst: s.sgst + d.sgst, igst: s.igst + d.igst,
-  }), { taxable: 0, cgst: 0, sgst: 0, igst: 0 });
-  const minus = (a: ReturnType<typeof total>, b: ReturnType<typeof total>) => ({
-    taxable: a.taxable - b.taxable, cgst: a.cgst - b.cgst, sgst: a.sgst - b.sgst, igst: a.igst - b.igst,
+/**
+ * The figures for the FTA's VAT 201 return. Sales boxes are net of credit notes and expense boxes net of debit notes.
+ * Boxes 2 (tourist refunds), 6 and 7 (customs imports) are not tracked here and show zero.
+ */
+export function vatReturn(data: CompanyData, from: string, to: string) {
+  const sales = vatDocuments(data, ['SALES'], from, to);
+  const creditNotes = vatDocuments(data, ['CREDIT_NOTE'], from, to);
+  const bills = vatDocuments(data, ['PURCHASE'], from, to);
+  const debitNotes = vatDocuments(data, ['DEBIT_NOTE'], from, to);
+  const net = (plus: VatDoc[], minus: VatDoc[], pick: (d: VatDoc) => boolean, k: 'standard' | 'zeroRated' | 'exempt' | 'vat') =>
+    round2(plus.filter(pick).reduce((s, d) => s + d[k], 0) - minus.filter(pick).reduce((s, d) => s + d[k], 0));
+  const domestic = (d: VatDoc) => !d.reverseCharge;
+  const all = () => true;
+
+  const letters = 'abcdefg';
+  const byEmirate: VatBox[] = EMIRATES.map((emirate, i) => {
+    // Sales with no emirate set, or to someone outside the UAE at the standard rate, count where your business is.
+    const own = data.company.state && EMIRATES.includes(data.company.state) ? data.company.state : EMIRATES[0];
+    const inThis = (d: VatDoc) => (d.place && EMIRATES.includes(d.place) ? d.place : own) === emirate;
+    return { box: `1${letters[i]}`, label: `Standard rated supplies in ${emirate}`, amount: net(sales, creditNotes, inThis, 'standard'), vat: net(sales, creditNotes, inThis, 'vat') };
   });
-  const outward = minus(total(gstDocuments(data, ['SALES'], from, to)), total(gstDocuments(data, ['CREDIT_NOTE'], from, to)));
-  const itc = minus(total(gstDocuments(data, ['PURCHASE'], from, to)), total(gstDocuments(data, ['DEBIT_NOTE'], from, to)));
-  const payable = { cgst: outward.cgst - itc.cgst, sgst: outward.sgst - itc.sgst, igst: outward.igst - itc.igst };
-  return { outward, itc, payable, totalPayable: round2(payable.cgst + payable.sgst + payable.igst) };
+  const rcm = { amount: net(bills, debitNotes, d => d.reverseCharge, 'standard'), vat: net(bills, debitNotes, d => d.reverseCharge, 'vat') };
+  const outputs: VatBox[] = [
+    ...byEmirate,
+    { box: '2', label: 'Tax refunds provided to tourists', amount: 0, vat: 0 },
+    { box: '3', label: 'Supplies subject to the reverse charge', amount: rcm.amount, vat: rcm.vat },
+    { box: '4', label: 'Zero-rated supplies', amount: net(sales, creditNotes, all, 'zeroRated'), vat: 0 },
+    { box: '5', label: 'Exempt supplies', amount: net(sales, creditNotes, all, 'exempt'), vat: 0 },
+    { box: '6', label: 'Goods imported into the UAE', amount: 0, vat: 0 },
+    { box: '7', label: 'Adjustments to goods imported into the UAE', amount: 0, vat: 0 },
+  ];
+  const outputTotal: VatBox = { box: '8', label: 'Totals', amount: round2(outputs.reduce((s, b) => s + b.amount, 0)), vat: round2(outputs.reduce((s, b) => s + b.vat, 0)) };
+  const inputs: VatBox[] = [
+    { box: '9', label: 'Standard rated expenses', amount: net(bills, debitNotes, domestic, 'standard'), vat: net(bills, debitNotes, domestic, 'vat') },
+    { box: '10', label: 'Supplies subject to the reverse charge', amount: rcm.amount, vat: rcm.vat },
+  ];
+  const inputTotal: VatBox = { box: '11', label: 'Totals', amount: round2(inputs.reduce((s, b) => s + b.amount, 0)), vat: round2(inputs.reduce((s, b) => s + b.vat, 0)) };
+  const due = outputTotal.vat;
+  const recoverable = inputTotal.vat;
+  return { outputs, outputTotal, inputs, inputTotal, due, recoverable, payable: round2(due - recoverable) };
 }
 
 export function taxDeductionRegister(data: CompanyData, taxType: 'TDS' | 'TCS', from: string, to: string) {
@@ -1159,6 +1181,207 @@ export function computePay(data: CompanyData, employeeId: string, month: string)
   const gross = round2(earnings.reduce((s, x) => s + x.amount, 0));
   const totalDeductions = round2(deductions.reduce((s, x) => s + x.amount, 0));
   return { employeeId, days: paidDays, monthDays: days, present, absent, overtime, earnings, deductions, employer, gross, totalDeductions, net: round2(gross - totalDeductions) };
+}
+
+export interface PayrollPosting { lines: VoucherLine[]; gross: number; net: number }
+
+/** Ledger lines for a payroll run: earnings and employer cost on the debit side, what is owed on the credit side. */
+export function payrollLines(data: CompanyData, rows: PayrollRow[], payLedgerId: string): PayrollPosting {
+  const dr = new Map<string, number>();
+  const cr = new Map<string, number>();
+  const add = (m: Map<string, number>, id: string, amount: number) => m.set(id, (m.get(id) ?? 0) + amount);
+  let net = 0, gross = 0;
+  for (const row of rows) {
+    net += row.net;
+    for (const e of row.earnings) {
+      const h = data.payHeads.find(x => x.id === e.headId);
+      if (h) { add(dr, h.ledgerId, e.amount); gross += e.amount; }
+    }
+    for (const d of row.deductions) {
+      const h = data.payHeads.find(x => x.id === d.headId);
+      if (h) add(cr, h.ledgerId, d.amount);
+    }
+    for (const e of row.employer) {
+      const h = data.payHeads.find(x => x.id === e.headId);
+      if (h) { add(dr, h.ledgerId, e.amount); add(cr, h.liabilityLedgerId ?? h.ledgerId, e.amount); }
+    }
+  }
+  add(cr, payLedgerId, net);
+  const toLines = (m: Map<string, number>, side: 'DR' | 'CR'): VoucherLine[] => [...m.entries()]
+    .filter(([, amount]) => !isZero(amount))
+    .map(([ledgerId, amount]) => ({ id: `l_${ledgerId}_${side}`, ledgerId, side, amount: round2(amount) }));
+  return { lines: [...toLines(dr, 'DR'), ...toLines(cr, 'CR')], gross: round2(gross), net: round2(net) };
+}
+
+// ---------------------------------------------------------------- clients, projects and invoices
+
+export type InvoiceStatus = 'PAID' | 'PART_PAID' | 'UNPAID' | 'OVERDUE' | 'CANCELLED' | 'NOT_IN_BOOKS';
+
+export interface InvoiceRow {
+  voucher: Voucher;
+  partyId: string;
+  partyName: string;
+  projectName?: string;
+  total: number;
+  received: number;
+  balance: number;
+  dueDate?: string;
+  status: InvoiceStatus;
+  daysLate: number;
+}
+
+/** Sales invoices or purchase bills with what has been settled, worked out from the bill-wise records. */
+/**
+ * What is still owed on invoices (or bills) that are not tracked one by one.
+ * The party's balance is spread over its invoices, newest first, so payments clear the oldest invoices first.
+ */
+function untrackedInvoiceBalances(data: CompanyData, base: 'SALES' | 'PURCHASE'): Map<string, number> {
+  const out = new Map<string, number>();
+  const byParty = new Map<string, Voucher[]>();
+  for (const v of data.vouchers) {
+    if (v.type !== base || v.isCancelled || !v.partyId || !voucherInBooks(data, v)) continue;
+    const partyLine = v.lines.find(l => l.ledgerId === v.partyId);
+    if (ledgerOf(data, v.partyId)?.billWise && partyLine?.bills?.some(b => b.type === 'NEW')) continue;
+    if (!byParty.has(v.partyId)) byParty.set(v.partyId, []);
+    byParty.get(v.partyId)!.push(v);
+  }
+  for (const [partyId, list] of byParty) {
+    const signed = ledgerBalanceNow(data, partyId);
+    // A client owes you a debit balance; you owe a vendor a credit balance.
+    let left = Math.max(0, base === 'SALES' ? signed : -signed);
+    list.sort((a, b) => (a.date > b.date ? -1 : a.date < b.date ? 1 : b.createdAt.localeCompare(a.createdAt)));
+    for (const v of list) {
+      const total = v.lines.find(l => l.ledgerId === partyId)?.amount ?? voucherAmount(v);
+      const owed = round2(Math.min(left, total));
+      out.set(v.id, owed);
+      left = round2(left - owed);
+    }
+  }
+  return out;
+}
+
+export function invoiceRows(data: CompanyData, base: 'SALES' | 'PURCHASE', from: string, to: string): InvoiceRow[] {
+  const today = data.company.currentDate;
+  const open = new Map(billsOf(data, '9999-12-31').map(b => [`${b.ledgerId}|${b.ref}`, b]));
+  const unpaidUntracked = untrackedInvoiceBalances(data, base);
+  const rows: InvoiceRow[] = [];
+  for (const v of data.vouchers) {
+    if (v.type !== base || v.date < from || v.date > to) continue;
+    const partyId = v.partyId ?? '';
+    const partyLine = v.lines.find(l => l.ledgerId === partyId);
+    const total = partyLine?.amount ?? voucherAmount(v);
+    const ledger = ledgerOf(data, partyId);
+    const newRef = partyLine?.bills?.find(b => b.type === 'NEW');
+    let balance = 0;
+    // A cancelled invoice is no longer owed, whatever else mentions its number.
+    if (!v.isCancelled && ledger?.billWise && newRef) balance = Math.abs(open.get(`${partyId}|${newRef.ref}`)?.pending ?? 0);
+    else if (!v.isCancelled) balance = unpaidUntracked.get(v.id) ?? 0;
+    const dueDate = newRef?.dueDate ?? v.dueDate;
+    let status: InvoiceStatus;
+    if (v.isCancelled) status = 'CANCELLED';
+    else if (!voucherInBooks(data, v)) status = 'NOT_IN_BOOKS';
+    else if (isZero(balance)) status = 'PAID';
+    else if (dueDate && dueDate < today) status = 'OVERDUE';
+    else status = isZero(balance - total) ? 'UNPAID' : 'PART_PAID';
+    rows.push({
+      voucher: v, partyId, partyName: ledger?.name ?? 'No party',
+      projectName: v.projectId ? data.costCentres.find(c => c.id === v.projectId)?.name : undefined,
+      total, received: v.isCancelled ? 0 : round2(total - balance), balance: round2(balance), dueDate, status,
+      daysLate: dueDate && !isZero(balance) && dueDate < today ? daysBetween(dueDate, today) : 0,
+    });
+  }
+  return rows.sort((a, b) => (a.voucher.date > b.voucher.date ? -1 : a.voucher.date < b.voucher.date ? 1 : 0));
+}
+
+export interface PartyRow {
+  ledger: Ledger;
+  billed: number;
+  settled: number;
+  balance: number;
+  overdue: number;
+  invoices: number;
+}
+
+/** One row per client or vendor: what was billed and settled in the period, and what is open now. */
+export function partyRows(data: CompanyData, groupId: string, from: string, to: string): PartyRow[] {
+  const balances = ledgerBalances(data, from, to);
+  const today = data.company.currentDate;
+  const bills = billsOf(data, to);
+  const isClient = isInGroup(data, groupId, G.debtors);
+  return ledgersUnder(data, groupId).map(ledger => {
+    const b = balances.get(ledger.id)!;
+    const own = bills.filter(x => x.ledgerId === ledger.id);
+    const billType: VoucherBase = isClient ? 'SALES' : 'PURCHASE';
+    const invoices = data.vouchers.filter(v => v.type === billType && v.partyId === ledger.id && v.date >= from && v.date <= to && voucherInBooks(data, v)).length;
+    return {
+      ledger,
+      billed: round2(isClient ? b.dr : b.cr),
+      settled: round2(isClient ? b.cr : b.dr),
+      balance: round2(isClient ? b.closing : -b.closing),
+      overdue: round2(own.filter(x => x.dueDate < today && !x.isOnAccount).reduce((s, x) => s + Math.abs(x.pending), 0)),
+      invoices,
+    };
+  });
+}
+
+export interface ProjectRow {
+  project: CostCentre;
+  clientName?: string;
+  income: number;
+  expense: number;
+  profit: number;
+  marginPct: number | null;
+  /** Share of the agreed price billed so far. */
+  billedPct: number | null;
+}
+
+export function projectRows(data: CompanyData, from: string, to: string): ProjectRow[] {
+  const report = new Map(costCentreReport(data, from, to).map(r => [r.centreId, r]));
+  return data.costCentres.map(project => {
+    const r = report.get(project.id);
+    const income = round2(r?.income ?? 0);
+    const expense = round2(r?.expense ?? 0);
+    return {
+      project,
+      clientName: project.clientId ? ledgerOf(data, project.clientId)?.name : undefined,
+      income, expense, profit: round2(income - expense),
+      marginPct: income > 0 ? ((income - expense) / income) * 100 : null,
+      billedPct: project.quote ? (income / project.quote) * 100 : null,
+    };
+  });
+}
+
+/** TDS clients cut from what they paid you. It counts as tax already paid, so keep it for your return. */
+export function tdsFromClients(data: CompanyData, from: string, to: string) {
+  const ids = new Set(data.ledgers.filter(l => l.taxType === 'TDS' && l.taxSide === 'INPUT').map(l => l.id));
+  const rows: { voucher: Voucher; party: string; amount: number }[] = [];
+  for (const p of postings(data)) {
+    if (!ids.has(p.line.ledgerId) || p.voucher.date < from || p.voucher.date > to) continue;
+    const other = p.voucher.lines.find(l => { const x = ledgerOf(data, l.ledgerId); return !!x && isInGroup(data, x.groupId, G.debtors); });
+    rows.push({ voucher: p.voucher, party: other ? ledgerName(data, other.ledgerId) : voucherParticulars(data, p.voucher, p.line.ledgerId), amount: p.signed });
+  }
+  return { rows, total: round2(rows.reduce((s, r) => s + r.amount, 0)) };
+}
+
+/** Unrealised gain or loss: each foreign-currency balance revalued at the current rate. */
+export function forexPositions(data: CompanyData, asOf: string) {
+  const out: { ledger: Ledger; currencyCode: string; fcBalance: number; bookValue: number; rate: number; atToday: number; gain: number }[] = [];
+  for (const ledger of data.ledgers) {
+    if (!ledger.currencyId) continue;
+    const currency = data.currencies.find(c => c.id === ledger.currencyId);
+    if (!currency) continue;
+    let fc = 0;
+    let book = ledger.openingBalance;
+    for (const p of postings(data)) {
+      if (p.line.ledgerId !== ledger.id || p.voucher.date > asOf) continue;
+      book += p.signed;
+      const amount = p.line.forex?.fcAmount ?? p.line.amount / (currency.rate || 1);
+      fc += p.line.side === 'DR' ? amount : -amount;
+    }
+    const atToday = round2(fc * currency.rate);
+    out.push({ ledger, currencyCode: currency.code, fcBalance: round2(fc), bookValue: round2(book), rate: currency.rate, atToday, gain: round2(atToday - book) });
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------- checks

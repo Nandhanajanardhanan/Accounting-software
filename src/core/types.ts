@@ -9,7 +9,7 @@ export type VoucherBase =
 
 export type Side = 'DR' | 'CR';
 export type Nature = 'ASSET' | 'LIABILITY' | 'INCOME' | 'EXPENSE';
-export type TaxType = 'CGST' | 'SGST' | 'IGST' | 'TDS' | 'TCS' | 'OTHER';
+export type TaxType = 'VAT' | 'TDS' | 'TCS' | 'OTHER';
 export type BankMode = 'CHEQUE' | 'NEFT' | 'RTGS' | 'IMPS' | 'UPI' | 'CARD' | 'OTHER';
 export type ValuationMethod = 'AVG' | 'FIFO' | 'LAST_PURCHASE';
 
@@ -42,11 +42,15 @@ export interface Ledger {
   // Party details
   mailingName?: string;
   address?: string;
+  /** Emirate (or 'Outside UAE'). */
   state?: string;
   pincode?: string;
   phone?: string;
   email?: string;
-  gstin?: string;
+  contactPerson?: string;
+  country?: string;
+  /** UAE VAT Tax Registration Number (15 digits). */
+  trn?: string;
   pan?: string;
   billWise?: boolean;
   creditDays?: number;
@@ -61,9 +65,8 @@ export interface Ledger {
   taxSide?: 'INPUT' | 'OUTPUT';
   taxRate?: number;
   section?: string;
-  // Income, expense or service ledgers used on invoices
-  gstRate?: number;
-  hsn?: string;
+  // Income, expense or service ledgers used on invoices: the VAT rate they usually carry.
+  vatRate?: number;
   // Bank ledgers
   bankName?: string;
   accountNo?: string;
@@ -121,18 +124,33 @@ export interface StockLine {
   discountPct?: number;
   amount: number;
   direction: 'IN' | 'OUT';
-  gstRate?: number;
+  vatRate?: number;
   batch?: string;
   expiry?: string;
 }
 
-export interface GstRow {
+/** A line of work on an invoice or bill: what was done, how much, and which ledger it posts to. */
+export interface ServiceLine {
+  id: string;
+  description: string;
+  ledgerId: string;
+  qty: number;
   rate: number;
-  hsn?: string;
+  /** In the company's own currency. */
+  amount: number;
+  vatRate?: number;
+}
+
+/**
+ * VAT on one invoice, per rate. `rate` is 5 (standard), 0 (zero-rated) or VAT_EXEMPT (-1).
+ * Reverse-charge rows are imports from outside the UAE: you account for the VAT yourself
+ * and recover it in the same return, so the supplier is not paid any VAT.
+ */
+export interface VatRow {
+  rate: number;
   taxable: number;
-  cgst: number;
-  sgst: number;
-  igst: number;
+  vat: number;
+  reverseCharge?: boolean;
 }
 
 export interface PayrollRow {
@@ -169,8 +187,17 @@ export interface Voucher {
   isCancelled?: boolean;
   /** Reversing journals apply up to this date. */
   applicableUpto?: string;
-  gst?: GstRow[];
+  services?: ServiceLine[];
+  /** The project this whole invoice or bill belongs to. */
+  projectId?: string;
+  /** Currency the invoice was raised in; amounts on the lines stay in the company's own currency. */
+  currencyId?: string;
+  exchangeRate?: number;
+  vat?: VatRow[];
+  /** Emirate of supply, for the VAT return. Defaults to the party's emirate. */
   placeOfSupply?: string;
+  /** On a receipt or payment made from the invoice screen: the invoice or purchase it settles. Kept in step with it. */
+  settlesInvoiceId?: string;
   /** Sales or purchase order this delivery was made against. */
   orderId?: string;
   /** Delivery or receipt notes that an invoice bills. */
@@ -203,7 +230,21 @@ export interface Currency {
 }
 
 export interface CostCategory { id: string; name: string }
-export interface CostCentre { id: string; name: string; categoryId?: string; parentId?: string }
+
+/** A project. Tally calls these cost centres; income and spending can be tagged to one. */
+export interface CostCentre {
+  id: string;
+  name: string;
+  categoryId?: string;
+  parentId?: string;
+  clientId?: string;
+  status?: 'ACTIVE' | 'ON_HOLD' | 'DONE';
+  /** The price agreed with the client. */
+  quote?: number;
+  startDate?: string;
+  endDate?: string;
+  notes?: string;
+}
 
 export interface BudgetLine { kind: 'GROUP' | 'LEDGER'; refId: string; amount: number }
 export interface Budget { id: string; name: string; from: string; to: string; lines: BudgetLine[] }
@@ -230,8 +271,7 @@ export interface StockItem {
   groupId?: string;
   categoryId?: string;
   unitId: string;
-  hsn?: string;
-  gstRate?: number;
+  vatRate?: number;
   openingQty: number;
   openingRate: number;
   openingGodownId?: string;
@@ -301,7 +341,7 @@ export interface SavingsConfig {
 
 export interface Features {
   inventory: boolean;
-  gst: boolean;
+  vat: boolean;
   tds: boolean;
   tcs: boolean;
   costCentres: boolean;
@@ -317,14 +357,22 @@ export interface Features {
 export interface CompanySettings {
   id: string;
   name: string;
+  ownerName?: string;
+  profession?: string;
   mailingName?: string;
   address?: string;
+  /** Emirate (or 'Outside UAE'). */
   state?: string;
   pincode?: string;
   phone?: string;
   email?: string;
   website?: string;
-  gstin?: string;
+  upiId?: string;
+  /** Bank account printed on invoices so clients know where to pay. */
+  invoiceBankLedgerId?: string;
+  invoiceTerms?: string;
+  /** UAE VAT Tax Registration Number (15 digits). */
+  trn?: string;
   pan?: string;
   tan?: string;
   currencySymbol: string;

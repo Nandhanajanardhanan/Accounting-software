@@ -1,0 +1,92 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-600: #1d5fd1;
+  --color-brand-700: #1a4fb0;
+  --color-brand-800: #163f8c;
+  --color-brand-900: #122f66;
+}
+
+@layer base {
+  html { font-size: 14px; }
+  body {
+    margin: 0;
+    background: #f5f7fa;
+    color: #1e293b;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3 { color: #0f172a; }
+  input, select, textarea, button { font: inherit; }
+  :focus-visible { outline: 2px solid var(--color-brand-600); outline-offset: 1px; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
+  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; border: 2px solid transparent; background-clip: content-box; }
+}
+
+@layer components {
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+    border-radius: 8px; padding: 0.5rem 0.9rem; font-weight: 600; white-space: nowrap; cursor: pointer;
+    border: 1px solid #cbd5e1; background: #fff; color: #334155; transition: background-color 120ms, border-color 120ms;
+  }
+  .btn:hover { background: #f1f5f9; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary { background: var(--color-brand-600); border-color: var(--color-brand-600); color: #fff; }
+  .btn-primary:hover { background: var(--color-brand-700); }
+  .btn-danger { color: #b91c1c; border-color: #fecaca; }
+  .btn-danger:hover { background: #fef2f2; }
+  .btn-ghost { border-color: transparent; background: transparent; }
+  .btn-sm { padding: 0.25rem 0.6rem; font-size: 0.875rem; border-radius: 6px; }
+
+  .input {
+    width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0.5rem 0.65rem; background: #fff; color: #0f172a;
+  }
+  .input:focus { outline: 2px solid var(--color-brand-600); outline-offset: -1px; border-color: var(--color-brand-600); }
+  .input:disabled { background: #f1f5f9; color: #64748b; }
+  .input-num { text-align: right; font-variant-numeric: tabular-nums; }
+  .cell-input {
+    width: 100%; border: 1px solid transparent; border-radius: 6px; padding: 0.35rem 0.5rem; background: transparent; color: #0f172a;
+  }
+  .cell-input:hover { border-color: #e2e8f0; }
+  .cell-input:focus { outline: 2px solid var(--color-brand-600); outline-offset: -1px; background: #fff; }
+
+  .label { display: block; font-size: 0.8571rem; font-weight: 600; color: #475569; margin-bottom: 0.25rem; }
+  .hint { font-size: 0.8571rem; color: #64748b; }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; }
+
+  .tbl { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .tbl th {
+    text-align: left; font-size: 0.8571rem; font-weight: 600; color: #475569; background: #f8fafc;
+    padding: 0.55rem 0.75rem; border-bottom: 1px solid #e2e8f0; white-space: nowrap;
+  }
+  .tbl td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  .tbl .num { text-align: right; white-space: nowrap; }
+  .tbl tfoot td, .tbl tr.total td { font-weight: 700; background: #f8fafc; border-top: 2px solid #cbd5e1; border-bottom: 0; }
+  .tbl tr.sub td { font-weight: 600; background: #fbfcfe; }
+  .tbl tr[data-href] { cursor: pointer; }
+  .tbl tr[data-href]:hover td { background: var(--color-brand-50); }
+  .tbl tr.kbd-active td { background: var(--color-brand-100); }
+  .tbl tr.muted td { color: #94a3b8; }
+  .tbl-compact td, .tbl-compact th { padding: 0.25rem 0.4rem; }
+
+  .pill { display: inline-flex; align-items: center; gap: 0.25rem; border-radius: 999px; padding: 0.05rem 0.55rem; font-size: 0.8125rem; font-weight: 600; white-space: nowrap; }
+  .kbd { display: inline-block; border: 1px solid #cbd5e1; border-bottom-width: 2px; border-radius: 4px; padding: 0 0.3rem; font-size: 0.75rem; font-weight: 600; color: #475569; background: #fff; white-space: nowrap; }
+}
+
+.print-only { display: none; }
+
+@media print {
+  @page { margin: 12mm; }
+  html, body { background: #fff; font-size: 11px; }
+  .no-print { display: none !important; }
+  .print-only { display: block; }
+  .print-root, .print-root * { overflow: visible !important; }
+  .print-root { height: auto !important; display: block !important; }
+  .card { border: 0; border-radius: 0; }
+  .tbl tr { break-inside: avoid; }
+  .tbl th { background: #fff; }
+}

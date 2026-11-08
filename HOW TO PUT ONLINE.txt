@@ -1,0 +1,55 @@
+FREELANCE BOOKS - SHARE IT AS A LINK WITH NGROK (FREE)
+======================================================
+
+Do this once, on the computer that keeps the books (the office PC).
+The link only works while that computer is on and start-online.bat is running.
+
+1. MAKE A FREE NGROK ACCOUNT
+   - Go to https://ngrok.com and sign up (free plan).
+
+2. GET YOUR FIXED FREE ADDRESS
+   - In the ngrok dashboard open  Domains  (Universal Gateway > Domains).
+   - Free accounts get one fixed address, something like
+        apex-books.ngrok-free.app
+     If none is listed, click "New Domain" / "Create Domain" to claim your free one.
+   - Copy it.
+
+3. INSTALL NGROK
+   - Easiest: open "Command Prompt" and run:
+        winget install ngrok.ngrok
+     (or download it from https://ngrok.com/download and follow their steps)
+
+4. CONNECT NGROK TO YOUR ACCOUNT
+   - In the dashboard open  Your Authtoken  and copy the command shown, which looks like:
+        ngrok config add-authtoken 2abc...your-token...
+   - Paste it into Command Prompt and press Enter.
+   - Keep that token private. Do not send it to anyone.
+
+5. PUT YOUR ADDRESS IN THE SETTINGS FILE
+   - In this folder open the file  .env  with Notepad.
+   - On the line  NGROK_DOMAIN=  add your address, with no https:// in front:
+        NGROK_DOMAIN=apex-books.ngrok-free.app
+   - Save.
+
+6. GO ONLINE
+   - Double-click  start-online.bat
+   - It shows the link, for example  https://apex-books.ngrok-free.app
+   - Send that link to whoever needs it. They sign in with:
+        User name: vinitha
+        Password:  password123
+   - The first time someone opens the link, ngrok shows a short
+     "You are about to visit..." page. Click "Visit Site". That is normal on the free plan.
+
+EVERY DAY
+- Double-click start-online.bat. Keep its windows open (two run minimised).
+- The link is the same every time.
+- Close the windows to take the books offline. Everything is already saved.
+
+CHANGING THE LOGIN
+- Edit BOOKS_USER and BOOKS_PASSWORD in .env, save, then close and restart start-online.bat.
+- Please choose a stronger password than password123 before sharing the link widely:
+  anyone on the internet can reach the login page.
+
+KEEP A BACKUP
+- Once a week: Business & Tools -> Backup & Restore -> Export backup.
+  Keep that file on Google Drive, OneDrive or a pen drive.

@@ -1,9 +1,19 @@
-// Turns what a person types on an invoice into balanced ledger lines, stock lines and GST rows.
-import type { BillAlloc, CompanyData, GstRow, StockLine, VoucherBase, VoucherLine } from './types.ts';
-import { ROUND_OFF_LEDGER_ID } from './defaults.ts';
-import { itemOf, ledgerOf, round2 } from './engine.ts';
+// Turns what a person types on an invoice or bill into balanced ledger lines, stock lines and UAE VAT rows.
+import type { BillAlloc, CompanyData, CostAlloc, ServiceLine, StockLine, VatRow, VoucherBase, VoucherLine } from './types.ts';
+import { OUTSIDE_UAE, ROUND_OFF_LEDGER_ID, VAT_EXEMPT } from './defaults.ts';
+import { isPnlLedger, ledgerOf, round2 } from './engine.ts';
 
 export type InvoiceBase = 'SALES' | 'PURCHASE' | 'CREDIT_NOTE' | 'DEBIT_NOTE';
+
+export interface InvoiceServiceInput {
+  id?: string;
+  description: string;
+  ledgerId: string;
+  qty: number;
+  /** In the invoice's currency. */
+  rate: number;
+  vatRate?: number;
+}
 
 export interface InvoiceItemInput {
   id?: string;
@@ -12,7 +22,7 @@ export interface InvoiceItemInput {
   qty: number;
   rate: number;
   discountPct?: number;
-  gstRate?: number;
+  vatRate?: number;
   batch?: string;
   expiry?: string;
 }
@@ -20,40 +30,47 @@ export interface InvoiceItemInput {
 export interface InvoiceChargeInput {
   id?: string;
   ledgerId: string;
-  /** Positive adds to the invoice, negative reduces it (a discount, or TDS deducted). */
+  /** Positive adds to the invoice, negative reduces it (a discount). */
   amount: number;
-  gstRate?: number;
-  hsn?: string;
+  vatRate?: number;
 }
 
 export interface InvoiceInput {
   base: InvoiceBase;
   partyId: string;
-  /** Sales or purchase ledger the goods post to. */
-  accountLedgerId: string;
-  items: InvoiceItemInput[];
-  charges: InvoiceChargeInput[];
+  /** Ledger goods post to. Only needed when the invoice has stock items. */
+  accountLedgerId?: string;
+  services?: InvoiceServiceInput[];
+  items?: InvoiceItemInput[];
+  charges?: InvoiceChargeInput[];
   roundOff: boolean;
-  /** Override for the state goods are supplied to; defaults to the party's state. */
   placeOfSupply?: string;
   bills?: BillAlloc[];
+  projectId?: string;
+  /** Foreign-currency invoice: rates are typed in this currency and converted here. */
+  currencyId?: string;
+  exchangeRate?: number;
 }
 
 export interface InvoiceResult {
   lines: VoucherLine[];
   stock: StockLine[];
-  gst: GstRow[];
+  services: ServiceLine[];
+  vat: VatRow[];
   subtotal: number;
   taxTotal: number;
   roundOff: number;
   total: number;
-  interState: boolean;
+  /** Total in the invoice's own currency; equals total for a local invoice. */
+  fcTotal: number;
+  /** A bill from a supplier outside the UAE: VAT is self-accounted, not paid to the supplier. */
+  reverseCharge: boolean;
   errors: string[];
 }
 
 const newId = () => `l_${Math.random().toString(36).slice(2, 10)}`;
 
-// Which way each invoice type posts: where the goods go, and which side the party sits on.
+// Which way each type posts: the income or expense side, where goods go, and which tax ledgers apply.
 const SHAPE: Record<InvoiceBase, { main: 'DR' | 'CR'; stock: 'IN' | 'OUT'; taxSide: 'INPUT' | 'OUTPUT' }> = {
   SALES: { main: 'CR', stock: 'OUT', taxSide: 'OUTPUT' },
   CREDIT_NOTE: { main: 'DR', stock: 'IN', taxSide: 'OUTPUT' },
@@ -63,84 +80,116 @@ const SHAPE: Record<InvoiceBase, { main: 'DR' | 'CR'; stock: 'IN' | 'OUT'; taxSi
 
 export const isInvoiceBase = (b: VoucherBase): b is InvoiceBase => b in SHAPE;
 
-export function isInterState(data: CompanyData, partyId: string, placeOfSupply?: string): boolean {
-  const own = data.company.state;
-  const place = placeOfSupply || ledgerOf(data, partyId)?.state;
-  return !!own && !!place && own !== place;
+/** Emirate the supply happens in: the one chosen on the invoice, else the party's, else your own. */
+export function placeOf(data: CompanyData, partyId: string | undefined, placeOfSupply?: string): string | undefined {
+  return placeOfSupply || (partyId ? ledgerOf(data, partyId)?.state : undefined) || data.company.state;
 }
 
-export function findTaxLedger(data: CompanyData, type: 'CGST' | 'SGST' | 'IGST', side: 'INPUT' | 'OUTPUT') {
-  return data.ledgers.find(l => l.taxType === type && l.taxSide === side);
+/** Bills from suppliers outside the UAE fall under the reverse charge: you account for the VAT yourself. */
+export function isReverseCharge(data: CompanyData, base: InvoiceBase, partyId: string, placeOfSupply?: string): boolean {
+  if (base !== 'PURCHASE' && base !== 'DEBIT_NOTE') return false;
+  return (placeOfSupply || ledgerOf(data, partyId)?.state) === OUTSIDE_UAE;
+}
+
+export function findTaxLedger(data: CompanyData, side: 'INPUT' | 'OUTPUT') {
+  return data.ledgers.find(l => l.taxType === 'VAT' && l.taxSide === side);
 }
 
 export function computeInvoice(data: CompanyData, input: InvoiceInput): InvoiceResult {
   const shape = SHAPE[input.base];
   const errors: string[] = [];
-  const useGst = data.company.features.gst;
-  const interState = isInterState(data, input.partyId, input.placeOfSupply);
-  const rows = new Map<string, GstRow>();
+  const useVat = data.company.features.vat;
+  const reverseCharge = useVat && isReverseCharge(data, input.base, input.partyId, input.placeOfSupply);
+  const fx = input.exchangeRate && input.exchangeRate > 0 ? input.exchangeRate : 1;
+  const rows = new Map<number, VatRow>();
 
-  const addTaxable = (taxable: number, rate: number | undefined, hsn?: string) => {
-    if (!useGst || !rate) {
-      if (useGst && rate === 0) bump(0, hsn, taxable, 0, 0, 0);
-      return;
+  const addTaxable = (taxable: number, rate: number | undefined) => {
+    if (!useVat || rate === undefined) return;
+    const vat = rate === VAT_EXEMPT ? 0 : (taxable * rate) / 100;
+    if (!rows.has(rate)) rows.set(rate, { rate, taxable: 0, vat: 0, ...(reverseCharge ? { reverseCharge: true } : {}) });
+    const r = rows.get(rate)!;
+    r.taxable += taxable;
+    r.vat += vat;
+  };
+
+  /** Tags a line to the project when it is income or an expense. */
+  const costsFor = (ledgerId: string, amount: number): CostAlloc[] | undefined => {
+    if (!input.projectId) return undefined;
+    const led = ledgerOf(data, ledgerId);
+    return led && isPnlLedger(data, led) ? [{ centreId: input.projectId, amount }] : undefined;
+  };
+
+  const lines: VoucherLine[] = [];
+  const opposite = (s: 'DR' | 'CR') => (s === 'DR' ? 'CR' : 'DR');
+  const addMainLine = (ledgerId: string, amount: number) => {
+    const existing = lines.find(l => l.ledgerId === ledgerId && l.side === shape.main);
+    if (existing) {
+      existing.amount = round2(existing.amount + amount);
+      if (existing.costs) existing.costs = costsFor(ledgerId, existing.amount);
+    } else {
+      lines.push({ id: newId(), ledgerId, side: shape.main, amount: round2(amount), costs: costsFor(ledgerId, round2(amount)) });
     }
-    const tax = (taxable * rate) / 100;
-    if (interState) bump(rate, hsn, taxable, 0, 0, tax);
-    else bump(rate, hsn, taxable, tax / 2, tax / 2, 0);
-  };
-  const bump = (rate: number, hsn: string | undefined, taxable: number, cgst: number, sgst: number, igst: number) => {
-    const key = `${rate}|${hsn ?? ''}`;
-    if (!rows.has(key)) rows.set(key, { rate, hsn, taxable: 0, cgst: 0, sgst: 0, igst: 0 });
-    const r = rows.get(key)!;
-    r.taxable += taxable; r.cgst += cgst; r.sgst += sgst; r.igst += igst;
   };
 
-  const stock: StockLine[] = input.items.map(row => {
-    const item = itemOf(data, row.itemId);
-    const gross = row.qty * row.rate;
+  // Lines of work
+  const services: ServiceLine[] = [];
+  for (const s of input.services ?? []) {
+    if (!s.ledgerId && !s.description && !s.rate) continue;
+    if (!s.ledgerId) { errors.push(`Choose an account for "${s.description || 'the line of work'}".`); continue; }
+    const amount = round2(s.qty * s.rate * fx);
+    if (amount === 0) continue;
+    const led = ledgerOf(data, s.ledgerId);
+    const rate = s.vatRate ?? led?.vatRate;
+    addTaxable(amount, rate);
+    addMainLine(s.ledgerId, amount);
+    services.push({ id: s.id ?? newId(), description: s.description, ledgerId: s.ledgerId, qty: s.qty, rate: s.rate, amount, vatRate: rate });
+  }
+  const servicesTotal = round2(services.reduce((t, s) => t + s.amount, 0));
+
+  // Stock items
+  const stock: StockLine[] = (input.items ?? []).map(row => {
+    const gross = row.qty * row.rate * fx;
     const amount = round2(gross - (gross * (row.discountPct ?? 0)) / 100);
-    addTaxable(amount, row.gstRate, item?.hsn);
+    addTaxable(amount, row.vatRate);
     return {
-      id: row.id ?? newId(), itemId: row.itemId, godownId: row.godownId, qty: row.qty, rate: row.rate,
-      discountPct: row.discountPct, amount, direction: shape.stock, gstRate: row.gstRate, batch: row.batch, expiry: row.expiry,
+      id: row.id ?? newId(), itemId: row.itemId, godownId: row.godownId, qty: row.qty, rate: round2(row.rate * fx),
+      discountPct: row.discountPct, amount, direction: shape.stock, vatRate: row.vatRate, batch: row.batch, expiry: row.expiry,
     };
   });
-  const itemsTotal = round2(stock.reduce((s, l) => s + l.amount, 0));
-
-  const opposite = (s: 'DR' | 'CR') => (s === 'DR' ? 'CR' : 'DR');
-  const lines: VoucherLine[] = [];
+  const itemsTotal = round2(stock.reduce((t, l) => t + l.amount, 0));
   if (itemsTotal !== 0) {
-    if (!input.accountLedgerId) errors.push('Choose the sales or purchase ledger.');
-    lines.push({ id: newId(), ledgerId: input.accountLedgerId, side: shape.main, amount: itemsTotal });
+    if (!input.accountLedgerId) errors.push('Choose the sales or purchase ledger for the items.');
+    else addMainLine(input.accountLedgerId, itemsTotal);
   }
 
+  // Extra charges, discounts and tax deducted
   let chargesTotal = 0;
-  for (const c of input.charges) {
+  for (const c of input.charges ?? []) {
     if (!c.ledgerId || !c.amount) continue;
     const led = ledgerOf(data, c.ledgerId);
-    const rate = c.gstRate ?? led?.gstRate;
-    if (rate !== undefined) addTaxable(c.amount, rate, c.hsn ?? led?.hsn);
+    const rate = c.vatRate ?? led?.vatRate;
+    if (rate !== undefined) addTaxable(c.amount, rate);
     chargesTotal += c.amount;
-    lines.push({ id: c.id ?? newId(), ledgerId: c.ledgerId, side: c.amount > 0 ? shape.main : opposite(shape.main), amount: round2(Math.abs(c.amount)) });
+    const amount = round2(Math.abs(c.amount));
+    lines.push({ id: c.id ?? newId(), ledgerId: c.ledgerId, side: c.amount > 0 ? shape.main : opposite(shape.main), amount, costs: costsFor(c.ledgerId, amount) });
   }
 
-  const gst = [...rows.values()].map(r => ({
-    rate: r.rate, hsn: r.hsn, taxable: round2(r.taxable), cgst: round2(r.cgst), sgst: round2(r.sgst), igst: round2(r.igst),
-  }));
-  const taxes = {
-    CGST: round2(gst.reduce((s, r) => s + r.cgst, 0)),
-    SGST: round2(gst.reduce((s, r) => s + r.sgst, 0)),
-    IGST: round2(gst.reduce((s, r) => s + r.igst, 0)),
-  };
-  for (const type of ['CGST', 'SGST', 'IGST'] as const) {
-    if (!taxes[type]) continue;
-    const led = findTaxLedger(data, type, shape.taxSide);
-    if (!led) errors.push(`No ${shape.taxSide === 'OUTPUT' ? 'Output' : 'Input'} ${type} ledger found. Turn GST on again in Features to create it.`);
-    else lines.push({ id: newId(), ledgerId: led.id, side: shape.main, amount: taxes[type] });
+  const vat = [...rows.values()].map(r => ({ ...r, taxable: round2(r.taxable), vat: round2(r.vat) }));
+  const vatAmount = round2(vat.reduce((t, r) => t + r.vat, 0));
+  const missing = (side: 'INPUT' | 'OUTPUT') => errors.push(`No ${side === 'OUTPUT' ? 'Output' : 'Input'} VAT ledger found. Turn VAT off and on again in Features to create it.`);
+  if (vatAmount) {
+    const led = findTaxLedger(data, shape.taxSide);
+    if (!led) missing(shape.taxSide);
+    else lines.push({ id: newId(), ledgerId: led.id, side: shape.main, amount: vatAmount });
+    // Reverse charge: the same VAT is also owed as output tax, so the supplier's total stays VAT-free.
+    if (reverseCharge) {
+      const out = findTaxLedger(data, 'OUTPUT');
+      if (!out) missing('OUTPUT');
+      else lines.push({ id: newId(), ledgerId: out.id, side: opposite(shape.main), amount: vatAmount });
+    }
   }
-  const taxTotal = round2(taxes.CGST + taxes.SGST + taxes.IGST);
-  const subtotal = round2(itemsTotal + chargesTotal);
+  const taxTotal = reverseCharge ? 0 : vatAmount;
+  const subtotal = round2(servicesTotal + itemsTotal + chargesTotal);
   const beforeRound = round2(subtotal + taxTotal);
   const total = input.roundOff ? Math.round(beforeRound) : beforeRound;
   const roundOff = round2(total - beforeRound);
@@ -149,13 +198,17 @@ export function computeInvoice(data: CompanyData, input: InvoiceInput): InvoiceR
     else lines.push({ id: newId(), ledgerId: ROUND_OFF_LEDGER_ID, side: roundOff > 0 ? shape.main : opposite(shape.main), amount: Math.abs(roundOff) });
   }
 
+  const fcTotal = round2(total / fx);
   if (input.partyId) {
-    lines.unshift({ id: newId(), ledgerId: input.partyId, side: opposite(shape.main), amount: total, bills: input.bills });
+    lines.unshift({
+      id: newId(), ledgerId: input.partyId, side: opposite(shape.main), amount: total, bills: input.bills,
+      forex: input.currencyId ? { currencyId: input.currencyId, fcAmount: fcTotal, rate: fx } : undefined,
+    });
   } else {
-    errors.push('Choose the party.');
+    errors.push('Choose who this is for.');
   }
-  if (!input.items.length && !input.charges.some(c => c.ledgerId && c.amount)) errors.push('Add at least one item or charge.');
-  if (total <= 0) errors.push('The invoice total must be more than zero.');
+  if (!services.length && !stock.length && !(input.charges ?? []).some(c => c.ledgerId && c.amount)) errors.push('Add at least one line of work or item.');
+  if (total <= 0) errors.push('The total must be more than zero.');
 
-  return { lines, stock, gst, subtotal, taxTotal, roundOff, total, interState, errors };
+  return { lines, stock, services, vat, subtotal, taxTotal, roundOff, total, fcTotal, reverseCharge, errors };
 }

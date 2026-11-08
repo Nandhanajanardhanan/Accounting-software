@@ -22,3 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Your accounts live here, so they stay on this computer and out of git
+data/
+
+# Install package for another computer (contains your books)
+Freelance-Books-install.zip
+
+# Login and other private settings for the server
+.env
